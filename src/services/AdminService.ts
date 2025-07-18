@@ -1,16 +1,17 @@
 import { injectable, inject } from "inversify";
 import TYPES from "../config/types";
-import { AdminRepository } from "../repositories/AdminRepository";
+import { IAdminRepository } from "../repositories/IAdminRepository";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "@prisma/client";
+import { IAdminService } from "./IAdminService";
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
 @injectable()
-export class AdminService {
+export class AdminService implements IAdminService{
   constructor(
-    @inject(TYPES.AdminRepository) private adminRepository: AdminRepository
+    @inject(TYPES.IAdminRepository) private adminRepository: IAdminRepository
   ) {}
 
   async login(email: string, password: string): Promise<{ admin: User; token: string }> {

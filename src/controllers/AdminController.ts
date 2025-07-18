@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import { injectable, inject } from "inversify";
 import TYPES from "../config/types";
-import { AdminService } from "../services/AdminService";
+import { IAdminService } from "../services/IAdminService";
 
 @injectable()
 export class AdminController {
   constructor(
-    @inject(TYPES.AdminService) private adminService: AdminService
+    @inject(TYPES.IAdminService) private adminService: IAdminService
   ) {}
 
   async login(req: Request, res: Response): Promise<void> {

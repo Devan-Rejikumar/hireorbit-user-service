@@ -1,9 +1,10 @@
 import { injectable } from "inversify";
 import { prisma } from '../prisma/client';
 import { User, Otp } from '@prisma/client';
+import { IUserRepository } from "./IUserRepository";
 
 @injectable()
-export class UserRepository {
+export class UserRepository implements IUserRepository {
     async findByEmail(email:string): Promise<User | null> {
         return prisma.user.findUnique({where: {email}});
     }

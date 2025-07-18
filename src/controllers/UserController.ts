@@ -2,11 +2,12 @@ import { Request, Response } from "express";
 import { injectable, inject } from "inversify";
 import TYPES from "../config/types";
 import { UserService } from "../services/UserService";
+import { IUserService } from "../services/IUserService";
 
 @injectable()
 export class UserController {
   constructor(
-    @inject(TYPES.UserService) private userService: UserService
+    @inject(TYPES.IUserService) private userService: IUserService
   ) {}
 
   async register(req: Request, res: Response): Promise<void> {

@@ -1,17 +1,19 @@
 import { injectable, inject } from "inversify";
 import TYPES from "../config/types";
-import { UserRepository } from "../repositories/UserRepository";
+import { IUserRepository } from "../repositories/IUserRepository";
 import { EmailService } from "./EmailService";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "@prisma/client";
+import { IUserService } from "./IUserService";
+
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
 @injectable()
-export class UserService {
+export class UserService implements IUserService{
   constructor(
-    @inject(TYPES.UserRepository) private userRepository: UserRepository,
+    @inject(TYPES.IUserRepository) private userRepository: IUserRepository,
     @inject(TYPES.EmailService) private emailService: EmailService
   ) {}
 

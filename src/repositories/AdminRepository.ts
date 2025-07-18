@@ -1,9 +1,10 @@
 import { injectable } from "inversify";
 import { prisma } from "../prisma/client";
 import { User } from "@prisma/client";
+import { IAdminRepository } from "./IAdminRepository";
 
 @injectable()
-export class AdminRepository {
+export class AdminRepository implements IAdminRepository{
   async findByEmail(email: string): Promise<User | null> {
     return prisma.user.findFirst({ where: { email, role: 'admin' } });
   }
