@@ -82,4 +82,7 @@ export class UserService implements IUserService{
     return this.generateOTP(email);
   }
 
+  async getAllUsers(): Promise<User[]>{
+    return this.userRepository.getAllUsers();
+  }
 }

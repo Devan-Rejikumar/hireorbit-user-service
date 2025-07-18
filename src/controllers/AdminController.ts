@@ -25,4 +25,13 @@ export class AdminController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async getAllUsers(req:Request, res:Response){
+    try {
+      const users = await this.adminService.getAllUsers()
+      res.json(users);
+     } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  }
 }
