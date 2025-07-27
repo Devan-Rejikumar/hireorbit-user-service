@@ -51,29 +51,43 @@ export function authorizeRoles(...roles: string[]) {
       next();
     };
   }
-  export const authenticateUserJWT = (req: Request, res: Response, next: NextFunction): void => {
-    const token = req.cookies?.token;
+
+
+export const authenticateUserJWT = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const token = req.cookies.token;
+    
+    console.log('Token received:', token ? 'Yes' : 'No'); // Debug log
+    console.log('Verifying with secret:', JWT_SECRET.substring(0, 10) + '...'); // Debug log
+    
     if (!token) {
       res.status(401).json({ error: 'No token provided' });
       return;
     }
-  
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-  
-      prisma.user.findUnique({ where: { id: decoded.userId } })
-        .then(user => {
-          if (!user) {
-            res.status(401).json({ error: 'User not found' });
-            return;
-          }
-          (req as any).user = user;
-          next();
-        })
-        .catch(() => {
-          res.status(401).json({ error: 'Invalid token' });
-        });
-    } catch {
-      res.status(401).json({ error: 'Invalid token' });
+
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    
+    console.log('Token decoded successfully:', decoded.userId); // Debug log
+    
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!user) {
+      res.status(401).json({ error: 'User not found' });
+      return;
     }
-  };
+
+    if (user.isBlocked) {
+      res.status(401).json({ error: 'Account is blocked' });
+      return;
+    }
+
+    (req as any).user = user;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(401).json({ error: 'Invalid token' });
+    return;
+  }
+};

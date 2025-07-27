@@ -18,6 +18,7 @@ model User {
   isVerified Boolean  @default(false)
   isBlocked  Boolean  @default(false)
   createdAt  DateTime @default(now())
+  profile    UserProfile?
 }
 
 model Otp {
@@ -39,4 +40,55 @@ model Company {
   isVerified  Boolean  @default(false)  // Admin must verify
   isBlocked   Boolean  @default(false)
   createdAt   DateTime @default(now())
+}
+model PasswordReset {
+     id         String   @id @default(uuid())
+     email      String
+     role       String
+     otp        String
+     expiresAt  DateTime
+     
+   }
+
+   model UserProfile {
+  id            String       @id @default(uuid())
+  userId        String      @unique
+  user          User        @relation(fields: [userId], references: [id])
+  headline      String?
+  about         String?     @db.Text
+  profilePicture String?
+  location      String?
+  phone         String?
+  skills        String[]
+  experience    Experience[]
+  education     Education[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Experience {
+  id            String      @id @default(uuid())
+  title         String
+  company       String
+  location      String?
+  startDate     DateTime
+  endDate       DateTime?
+  description   String?     @db.Text
+  isCurrentRole Boolean     @default(false)
+  profile       UserProfile @relation(fields: [profileId], references: [id])
+  profileId     String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Education {
+  id           String      @id @default(uuid())
+  institutuion String
+  degree       String
+  startDate    DateTime
+  endDate      DateTime?
+  profile      UserProfile @relation(fields: [profileId], references: [id])
+  profileId    String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }

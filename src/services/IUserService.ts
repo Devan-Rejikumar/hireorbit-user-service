@@ -15,4 +15,9 @@ export interface IUserService{
     verifyOTP(email:string,otp:number):Promise<{message:string}>
     resendOTP(email:string):Promise<{message:string}>
     getAllUsers():Promise<User[]>;
+    blockUser(id:string):Promise<User>;
+    unblockUser(id:string):Promise<User>;
+    verifyPasswordResetOTP(email: string, otp: string): Promise<{ message: string }>;
+    forgotPassword(email:string):Promise<{message:string}>
+    resetPassword(email: string, newPassword: string): Promise<{ message: string }>;
 }
