@@ -17,5 +17,9 @@ router.post("/logout", (req, res) => userController.logout(req, res));
 router.post("/forgot-password", (req, res) => userController.forgotPassword(req, res));
 router.post('/verify-password-reset-otp',(req,res)=>userController.verifyPasswordResetOTP(req,res))
 router.post('/reset-password', (req, res) => userController.resetPassword(req, res));
+router.put("/update-name", authenticateUserJWT, (req, res) => userController.updateName(req, res));
+router.post('/google-auth', (req, res) => userController.googleAuth(req, res));
+
+
 
 export default router;

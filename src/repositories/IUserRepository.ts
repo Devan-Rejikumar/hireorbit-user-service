@@ -23,4 +23,14 @@ export interface IUserRepository {
   findPasswordResetOTP(email: string, otp: string): Promise<any>;
   deletePasswordResetOTP(email: string, otp: string): Promise<void>;
   updateUserPassword(email: string, hashedPassword: string): Promise<void>;
+  updateUserName(userId: string, name: string): Promise<User>;
+ findByEmail(email: string): Promise<User | null>;
+  createUser(data: {
+    email: string;
+    password: string;
+    name: string;
+    role?:string;
+    profilePicture?: string;
+    isGoogleUser?: boolean;
+  }): Promise<User>;
 }

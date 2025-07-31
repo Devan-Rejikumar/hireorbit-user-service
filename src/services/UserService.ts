@@ -8,11 +8,10 @@ import { User } from "@prisma/client";
 import { IUserService } from "./IUserService";
 import { prisma } from "../prisma/client";
 
-
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
 @injectable()
-export class UserService implements IUserService{
+export class UserService implements IUserService {
   constructor(
     @inject(TYPES.IUserRepository) private userRepository: IUserRepository,
     @inject(TYPES.EmailService) private emailService: EmailService
@@ -27,7 +26,12 @@ export class UserService implements IUserService{
     const existingUser = await this.userRepository.findByEmail(email);
     if (existingUser) throw new Error("Email already in use");
     const hashed = await bcrypt.hash(password, 10);
-    return this.userRepository.createUser({ email, password: hashed, name, role });
+    return this.userRepository.createUser({
+      email,
+      password: hashed,
+      name,
+      role,
+    });
   }
 
   async login(
@@ -39,12 +43,13 @@ export class UserService implements IUserService{
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new Error("Invalid credentials");
     if (user.isBlocked) throw new Error("Account is blocked");
-    console.log('Signing token with secret:', JWT_SECRET.substring(0, 10) + '...');
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: "1d" }
+    console.log(
+      "Signing token with secret:",
+      JWT_SECRET.substring(0, 10) + "..."
     );
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, {
+      expiresIn: "1d",
+    });
     return { user, token };
   }
 
@@ -84,13 +89,13 @@ export class UserService implements IUserService{
     return this.generateOTP(email);
   }
 
-  async getAllUsers(): Promise<User[]>{
+  async getAllUsers(): Promise<User[]> {
     return this.userRepository.getAllUsers();
   }
 
   async blockUser(id: string): Promise<User> {
     const blockedUser = await this.userRepository.blockUser(id);
-    return blockedUser
+    return blockedUser;
   }
 
   async unblockUser(id: string): Promise<User> {
@@ -98,36 +103,70 @@ export class UserService implements IUserService{
     return unblockUser;
   }
 
- async forgotPassword(email:string):Promise<{message:string}>{
-  const existingUser = await this.userRepository.findByEmail(email);
-  if(!existingUser) throw new Error("User not found");
-  const otp = Math.floor(100000 + Math.random() * 900000);
-  const role = existingUser.role;
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5  await this.emailService.sendOTP(email,otp);
-  return {message:"Password reset OTP sent successfully"};
- }
-
- async verifyPasswordResetOTP(email: string, otp: string): Promise<{ message: string }> {
-  const otpRecord = await this.userRepository.findPasswordResetOTP(email, otp);
-  if (!otpRecord) throw new Error("No OTP found for this email");
-  const now = new Date();
-  const expiresAt = new Date(otpRecord.expiresAt);
-  if (now > expiresAt) {
-    await this.userRepository.deletePasswordResetOTP(email,otp);
-    throw new Error("OTP has expired");
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const existingUser = await this.userRepository.findByEmail(email);
+    if (!existingUser) throw new Error("User not found");
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const role = existingUser.role;
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    return { message: "Password reset OTP sent successfully" };
   }
 
-  if (otpRecord.otp !== otp) throw new Error("Invalid OTP");
+  async verifyPasswordResetOTP(
+    email: string,
+    otp: string
+  ): Promise<{ message: string }> {
+    const otpRecord = await this.userRepository.findPasswordResetOTP(
+      email,
+      otp
+    );
+    if (!otpRecord) throw new Error("No OTP found for this email");
+    const now = new Date();
+    const expiresAt = new Date(otpRecord.expiresAt);
+    if (now > expiresAt) {
+      await this.userRepository.deletePasswordResetOTP(email, otp);
+      throw new Error("OTP has expired");
+    }
 
-  await this.userRepository.deletePasswordResetOTP(email,otp);
-  return { message: "OTP verified successfully" };
-}
+    if (otpRecord.otp !== otp) throw new Error("Invalid OTP");
 
-async resetPassword(email: string, newPassword: string): Promise<{ message: string }> {
-  const user = await this.userRepository.findByEmail(email);
-  if (!user) throw new Error("User not found");
-  const hashed = await bcrypt.hash(newPassword, 10);
-  await this.userRepository.updateUserPassword(email, hashed);
-  return { message: "Password reset successful" };
-}
+    await this.userRepository.deletePasswordResetOTP(email, otp);
+    return { message: "OTP verified successfully" };
+  }
+
+  async resetPassword(
+    email: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) throw new Error("User not found");
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.updateUserPassword(email, hashed);
+    return { message: "Password reset successful" };
+  }
+
+  async updateUserName(userId: string, name: string): Promise<User> {
+    return this.userRepository.updateUserName(userId, name);
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findByEmail(email);
+  }
+
+  async createGoogleUser(userData: {
+    email: string;
+    fullName: string;
+    profilePicture?: string;
+  }): Promise<User> {
+    return this.userRepository.createUser({
+      email: userData.email,
+      password: "",
+      name: userData.fullName,
+      profilePicture: userData.profilePicture,
+      isGoogleUser: true,
+    });
+  }
+  async findById(id: string): Promise<User | null> {
+    return this.userRepository.findById(id);
+  }
 }

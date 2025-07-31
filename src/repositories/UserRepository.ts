@@ -13,9 +13,30 @@ export class UserRepository implements IUserRepository {
     email: string;
     password: string;
     name: string;
-    role: string;
+    profilePicture?: string;
+    isGoogleUser?: boolean;
   }): Promise<User> {
-    return prisma.user.create({ data });
+    const user = await prisma.user.create({
+      data: {
+        email: data.email,
+        password: data.password,
+        name: data.name, 
+        role: "jobseeker", 
+        isVerified: data.isGoogleUser || false, 
+      },
+    });
+
+   
+    if (data.profilePicture) {
+      await prisma.userProfile.create({
+        data: {
+          userId: user.id,
+          profilePicture: data.profilePicture,
+        },
+      });
+    }
+
+    return user;
   }
 
   async findById(id: string): Promise<User | null> {
@@ -72,19 +93,29 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async findPasswordResetOTP(email: string, otp:string):Promise<any> {
+  async findPasswordResetOTP(email: string, otp: string): Promise<any> {
     return prisma.passwordReset.findFirst({
-      where: { email,otp },
+      where: { email, otp },
     });
   }
 
-  async deletePasswordResetOTP(email: string,otp:string) {
-    await prisma.passwordReset.deleteMany({ where: { email,otp } });
+  async deletePasswordResetOTP(email: string, otp: string) {
+    await prisma.passwordReset.deleteMany({ where: { email, otp } });
   }
-  async updateUserPassword(email: string, hashedPassword: string): Promise<void> {
-  await prisma.user.update({
-    where: { email },
-    data: { password: hashedPassword }
-  });
-}
+  async updateUserPassword(
+    email: string,
+    hashedPassword: string
+  ): Promise<void> {
+    await prisma.user.update({
+      where: { email },
+      data: { password: hashedPassword },
+    });
+  }
+
+  async updateUserName(userId: string, name: string): Promise<User> {
+    return prisma.user.update({
+      where: { id: userId },
+      data: { name },
+    });
+  }
 }

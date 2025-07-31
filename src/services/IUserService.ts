@@ -20,4 +20,12 @@ export interface IUserService{
     verifyPasswordResetOTP(email: string, otp: string): Promise<{ message: string }>;
     forgotPassword(email:string):Promise<{message:string}>
     resetPassword(email: string, newPassword: string): Promise<{ message: string }>;
+    updateUserName(userId: string, name: string): Promise<User>;
+    findByEmail(email: string): Promise<User | null>;
+  createGoogleUser(userData: {
+    email: string;
+    fullName: string;
+    profilePicture?: string;
+  }): Promise<User>;
+  findById(id: string): Promise<User | null>;
 }

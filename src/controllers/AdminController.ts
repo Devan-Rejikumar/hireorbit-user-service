@@ -3,6 +3,7 @@ import { injectable, inject } from "inversify";
 import TYPES from "../config/types";
 import { IAdminService } from "../services/IAdminService";
 import { IUserService } from "../services/IUserService";
+import { HttpStatusCode, AuthStatusCode, ValidationStatusCode } from "../enums/StatusCodes";
 
 @injectable()
 export class AdminController {
@@ -14,58 +15,236 @@ export class AdminController {
   async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
+
+    
+      if (!email || !password) {
+        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
+          error: "Email and password are required" 
+        });
+        return;
+      }
+
       const { admin, token } = await this.adminService.login(email, password);
+      
       res.cookie("admintoken", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
       })
-      .status(200)
+      .status(AuthStatusCode.LOGIN_SUCCESS)
       .json({ admin });
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      if (err.message === "Invalid credentials" || err.message === "Admin not found") {
+        res.status(AuthStatusCode.INVALID_CREDENTIALS).json({ error: "Invalid email or password" });
+      } else if (err.message === "Account blocked") {
+        res.status(AuthStatusCode.ACCOUNT_BLOCKED).json({ error: err.message });
+      } else {
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: err.message });
+      }
     }
   }
 
-  async getAllUsers(req:Request, res:Response){
+  async getAllUsers(req: Request, res: Response): Promise<void> {
     try {
-      const users = await this.adminService.getAllUsers()
-      res.json(users);
-     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch users" });
-    }
-  }
+      const adminId = (req as any).user?.userId;
+      
+      if (!adminId) {
+        res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
+        return;
+      }
 
-  async blockUser(req:Request, res:Response):Promise<void>{
-    try {
-      const {id} = req.params;
-      const user = await this.userService.blockUser(id);
-      res.json({message:"User blocked successfully",user})
+      const users = await this.adminService.getAllUsers();
+      res.status(HttpStatusCode.OK).json({ users });
     } catch (error: any) {
-      res.status(500).json({error:error.message})
+      res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: "Failed to fetch users" });
     }
   }
 
-  async unblockUser(req:Request,res:Response):Promise<void>{
+  async blockUser(req: Request, res: Response): Promise<void> {
     try {
-      const {id} = req.params;
-      const user = await this.userService.unblockUser(id);
-      res.json({message:"User unblocked successfully",user})
-    } catch (error:any) {
-      res.status(500).json({error:error.message})
+      const { id } = req.params;
+      const adminId = (req as any).user?.userId;
+
+      if (!adminId) {
+        res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      if (!id) {
+        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
+          error: "User ID is required" 
+        });
+        return;
+      }
+
+      const user = await this.userService.blockUser(id);
+      res.status(HttpStatusCode.OK).json({ 
+        message: "User blocked successfully", 
+        user 
+      });
+    } catch (error: any) {
+      if (error.message === "User not found") {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
+      } else if (error.message === "User already blocked") {
+        res.status(HttpStatusCode.CONFLICT).json({ error: error.message });
+      } else {
+        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: error.message });
+      }
     }
   }
-  async logout(req:Request,res:Response):Promise<void>{
-    res.clearCookie('admintoken',{
+
+  async unblockUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const adminId = (req as any).user?.userId;
+
+      if (!adminId) {
+        res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      if (!id) {
+        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
+          error: "User ID is required" 
+        });
+        return;
+      }
+
+      const user = await this.userService.unblockUser(id);
+      res.status(HttpStatusCode.OK).json({ 
+        message: "User unblocked successfully", 
+        user 
+      });
+    } catch (error: any) {
+      if (error.message === "User not found") {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
+      } else if (error.message === "User not blocked") {
+        res.status(HttpStatusCode.CONFLICT).json({ error: error.message });
+      } else {
+        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: error.message });
+      }
+    }
+  }
+
+  async logout(req: Request, res: Response): Promise<void> {
+    res.clearCookie('admintoken', {
       httpOnly: true,
-    secure: true, 
-    sameSite: 'strict',
-    path: '/',
-    })
-     res.status(200).json({ message: 'Logged out successfully' });
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax',
+      path: '/',
+    });
+    res.status(HttpStatusCode.OK).json({ message: 'Logged out successfully' });
   }
+
   async me(req: Request, res: Response): Promise<void> {
-    res.status(200).json({ admin: (req as any).user });
+    const admin = (req as any).user;
+    
+    if (!admin) {
+      res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin not authenticated" });
+      return;
+    }
+
+    res.status(HttpStatusCode.OK).json({ admin });
   }
+
+  async getPendingCompanies(req: Request, res: Response): Promise<void> {
+    try {
+      const adminId = (req as any).user?.userId;
+      
+      if (!adminId) {
+        res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
+        return;
+      }
+
+      const companies = await this.adminService.getPendingCompanies();
+      res.status(HttpStatusCode.OK).json({ companies });
+    } catch (error: any) {
+      res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: error.message });
+    }
+  }
+
+  async approveCompany(req: Request, res: Response): Promise<void> {
+    try {
+      const { id: companyId } = req.params;
+      const adminId = (req as any).user?.userId;
+
+      if (!adminId) {
+        res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin not authenticated" });
+        return;
+      }
+
+      if (!companyId) {
+        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
+          error: "Company ID is required" 
+        });
+        return;
+      }
+
+      const result = await this.adminService.approveCompany(companyId, adminId);
+      res.status(HttpStatusCode.OK).json({
+        message: "Company approved successfully",
+        result
+      });
+    } catch (error: any) {
+      if (error.message === "Company not found") {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
+      } else if (error.message === "Company already approved") {
+        res.status(HttpStatusCode.CONFLICT).json({ error: error.message });
+      } else if (error.message === "Company profile not completed") {
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+      } else {
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+      }
+    }
+  }
+
+  async rejectCompany(req: Request, res: Response): Promise<void> {
+    try {
+      const { id: companyId } = req.params;
+      const { reason } = req.body;
+      const adminId = (req as any).user?.userId;
+
+      if (!adminId) {
+        res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin not authenticated" });
+        return;
+      }
+
+      if (!companyId) {
+        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
+          error: "Company ID is required" 
+        });
+        return;
+      }
+
+      if (!reason || !reason.trim()) {
+        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
+          error: "Rejection reason is required" 
+        });
+        return;
+      }
+
+      if (reason.trim().length < 10) {
+        res.status(ValidationStatusCode.VALIDATION_ERROR).json({ 
+          error: "Rejection reason must be at least 10 characters long" 
+        });
+        return;
+      }
+
+      const result = await this.adminService.rejectCompany(companyId, reason.trim(), adminId);
+      res.status(HttpStatusCode.OK).json({
+        message: "Company rejected successfully",
+        result
+      });
+    } catch (error: any) {
+      if (error.message === "Company not found") {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
+      } else if (error.message === "Company already processed") {
+        res.status(HttpStatusCode.CONFLICT).json({ error: error.message });
+      } else {
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+      }
+    }
+  }
+
 }

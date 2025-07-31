@@ -4,10 +4,9 @@ import nodemailer from "nodemailer";
 @injectable()
 export class EmailService {
   private transporter = nodemailer.createTransport({
-    // Use your real SMTP config here
     host: process.env.SMTP_HOST || "smtp.example.com",
     port: Number(process.env.SMTP_PORT) || 587,
-    secure: false, // true for 465, false for other ports
+    secure: false,
     auth: {
       user: process.env.SMTP_USER || "your@email.com",
       pass: process.env.SMTP_PASS || "yourpassword",

@@ -17,6 +17,7 @@ model User {
   role       String
   isVerified Boolean  @default(false)
   isBlocked  Boolean  @default(false)
+  isGoogleUser    Boolean  @default(false)
   createdAt  DateTime @default(now())
   profile    UserProfile?
 }
