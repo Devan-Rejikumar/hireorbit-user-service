@@ -15,8 +15,8 @@ export class AdminController {
   async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
+      console.log(`[AdminController] 2. Attempting login for email: ${email}`);
 
-    
       if (!email || !password) {
         res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
           error: "Email and password are required" 
@@ -25,15 +25,20 @@ export class AdminController {
       }
 
       const { admin, token } = await this.adminService.login(email, password);
+      console.log(`[AdminController] 3. Token generated successfully: ${token.substring(0, 20)}...`);
       
       res.cookie("admintoken", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
-      })
-      .status(AuthStatusCode.LOGIN_SUCCESS)
-      .json({ admin });
+      });
+
+  
+      console.log('[AdminController] 3a. Response headers prepared in user-service:', res.getHeaders());
+
+      res.status(AuthStatusCode.LOGIN_SUCCESS).json({ admin });
+
     } catch (err: any) {
       if (err.message === "Invalid credentials" || err.message === "Admin not found") {
         res.status(AuthStatusCode.INVALID_CREDENTIALS).json({ error: "Invalid email or password" });
@@ -47,9 +52,10 @@ export class AdminController {
 
   async getAllUsers(req: Request, res: Response): Promise<void> {
     try {
-      const adminId = (req as any).user?.userId;
+      const adminId = req.headers['x-user-id'] as string;
+      const adminRole = req.headers['x-user-role'] as string;
       
-      if (!adminId) {
+      if (!adminId || adminRole !== 'admin') {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
         return;
       }
@@ -64,9 +70,10 @@ export class AdminController {
   async blockUser(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const adminId = (req as any).user?.userId;
+      const adminId = req.headers['x-user-id'] as string;
+      const adminRole = req.headers['x-user-role'] as string;
 
-      if (!adminId) {
+      if (!adminId || adminRole !== 'admin') {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
         return;
       }
@@ -97,9 +104,10 @@ export class AdminController {
   async unblockUser(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const adminId = (req as any).user?.userId;
+      const adminId = req.headers['x-user-id'] as string;
+      const adminRole = req.headers['x-user-role'] as string;
 
-      if (!adminId) {
+      if (!adminId || adminRole !== 'admin') {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
         return;
       }
@@ -138,21 +146,30 @@ export class AdminController {
   }
 
   async me(req: Request, res: Response): Promise<void> {
-    const admin = (req as any).user;
+    const adminId = req.headers['x-user-id'] as string;
+    const adminEmail = req.headers['x-user-email'] as string;
+    const adminRole = req.headers['x-user-role'] as string;
     
-    if (!admin) {
+    if (!adminId || adminRole !== 'admin') {
       res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin not authenticated" });
       return;
     }
+
+    const admin = {
+      id: adminId,
+      email: adminEmail,
+      role: adminRole
+    };
 
     res.status(HttpStatusCode.OK).json({ admin });
   }
 
   async getPendingCompanies(req: Request, res: Response): Promise<void> {
     try {
-      const adminId = (req as any).user?.userId;
+      const adminId = req.headers['x-user-id'] as string;
+      const adminRole = req.headers['x-user-role'] as string;
       
-      if (!adminId) {
+      if (!adminId || adminRole !== 'admin') {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin authentication required" });
         return;
       }
@@ -167,9 +184,10 @@ export class AdminController {
   async approveCompany(req: Request, res: Response): Promise<void> {
     try {
       const { id: companyId } = req.params;
-      const adminId = (req as any).user?.userId;
+      const adminId = req.headers['x-user-id'] as string;
+      const adminRole = req.headers['x-user-role'] as string;
 
-      if (!adminId) {
+      if (!adminId || adminRole !== 'admin') {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin not authenticated" });
         return;
       }
@@ -203,9 +221,10 @@ export class AdminController {
     try {
       const { id: companyId } = req.params;
       const { reason } = req.body;
-      const adminId = (req as any).user?.userId;
+      const adminId = req.headers['x-user-id'] as string;
+      const adminRole = req.headers['x-user-role'] as string;
 
-      if (!adminId) {
+      if (!adminId || adminRole !== 'admin') {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Admin not authenticated" });
         return;
       }
@@ -246,5 +265,4 @@ export class AdminController {
       }
     }
   }
-
 }

@@ -20,26 +20,26 @@ router.get('/debug', (req, res) => {
 });
 
 
-router.post("/", authenticateUserJWT, (req, res) => profileController.createProfile(req, res));
-router.get("/", authenticateUserJWT, (req, res) => profileController.getProfile(req, res));
-router.put("/", authenticateUserJWT, (req, res) => profileController.updateProfile(req, res));
-router.delete("/", authenticateUserJWT, (req, res) => profileController.deleteProfile(req, res));
+router.post("/",(req, res) => profileController.createProfile(req, res));
+router.get("/", (req, res) => profileController.getProfile(req, res));
+router.put("/", (req, res) => profileController.updateProfile(req, res));
+router.delete("/",(req, res) => profileController.deleteProfile(req, res));
 
 router.get("/full", (req, res, next) => {
   console.log('=== /full route hit ===');
   console.log('Request URL:', req.url);
   console.log('Request method:', req.method);
   next();
-}, authenticateUserJWT, (req, res) => profileController.getFullProfile(req, res));
+}, (req, res) => profileController.getFullProfile(req, res));
 
 
-router.post("/experience", authenticateUserJWT, (req, res) => profileController.addExperience(req, res));
-router.put("/experience/:id", authenticateUserJWT, (req, res) => profileController.updateExperience(req, res));
-router.delete("/experience/:id", authenticateUserJWT, (req, res) => profileController.deleteExperience(req, res));
+router.post("/experience", (req, res) => profileController.addExperience(req, res));
+router.put("/experience/:id", (req, res) => profileController.updateExperience(req, res));
+router.delete("/experience/:id", (req, res) => profileController.deleteExperience(req, res));
 
 
-router.post("/education", authenticateUserJWT, (req, res) => profileController.addEducation(req, res));
-router.put("/education/:id", authenticateUserJWT, (req, res) => profileController.updateEducation(req, res));
-router.delete("/education/:id", authenticateUserJWT, (req, res) => profileController.deleteEducation(req, res));
+router.post("/education", (req, res) => profileController.addEducation(req, res));
+router.put("/education/:id",  (req, res) => profileController.updateEducation(req, res));
+router.delete("/education/:id",  (req, res) => profileController.deleteEducation(req, res));
 
 export default router;

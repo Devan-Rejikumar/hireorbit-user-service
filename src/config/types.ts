@@ -1,3 +1,5 @@
+import { JWTService } from "../services/JWTService";
+
 const TYPES = {
   UserService: Symbol.for("UserService"),
   IUserService: Symbol.for("IUserService"),
@@ -17,6 +19,8 @@ const TYPES = {
   ProfileController: Symbol.for("ProfileController"),
   CompanyApiRepository: Symbol.for("CompanyApiRepository"),
   ICompanyApiRepository: Symbol.for("ICompanyApiRepository"),
+  RedisService: Symbol.for("RedisService"),
+  JWTService: Symbol.for('JWTService')
 };
 
 export default TYPES;

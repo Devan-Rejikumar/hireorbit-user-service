@@ -14,7 +14,7 @@ export class ProfileController {
 
   async createProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const profileData = req.body;
       if(!userId){
         res.status(HttpStatusCode.UNAUTHORIZED).json({error:"User not authenticated"})
@@ -36,7 +36,7 @@ export class ProfileController {
 
   async getProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
 
       if (!userId) {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "User not authenticated" });
@@ -58,7 +58,7 @@ export class ProfileController {
 
   async updateProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const profileData = req.body;
 
       if (!userId) {
@@ -86,7 +86,7 @@ export class ProfileController {
 
   async deleteProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
 
       if (!userId) {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "User not authenticated" });
@@ -106,17 +106,22 @@ export class ProfileController {
 
   async getFullProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
-      const user = (req as any).user;
+      const userId = req.headers['x-user-id'] as string;
 
       if (!userId) {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "User not authenticated" });
         return;
       }
 
+    
+      const container = require("../config/inversify.config").default;
+      const TYPES = require("../config/types").default;
+      const userService = container.get(TYPES.IUserService);
+      const userData = await userService.findById(userId);
+
       let fullProfile = await this.profileService.getFullProfile(userId);
 
-      // If no profile exists, create an empty one
+    
       if (!fullProfile) {
         const emptyProfile = await this.profileService.createProfile(userId, {});
         fullProfile = await this.profileService.getFullProfile(userId);
@@ -127,9 +132,9 @@ export class ProfileController {
       res.status(HttpStatusCode.OK).json({
         profile: fullProfile,
         user: {
-          id: user.id,
-          username: user.name,
-          email: user.email,
+          id: userId,
+          username: userData?.name || req.headers['x-user-email'] as string,
+          email: req.headers['x-user-email'] as string,
         },
         completionPercentage,
       });
@@ -154,7 +159,7 @@ export class ProfileController {
 
   async addExperience(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const experienceData = req.body;
 
       if (!userId) {
@@ -162,7 +167,6 @@ export class ProfileController {
         return;
       }
 
-      // Validate required fields
       if (!experienceData.title || !experienceData.company) {
         res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
           error: "Title and company are required" 
@@ -183,7 +187,7 @@ export class ProfileController {
 
   async updateExperience(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const experienceId = req.params.id;
       const experienceData = req.body;
 
@@ -218,7 +222,7 @@ export class ProfileController {
 
   async deleteExperience(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const experienceId = req.params.id;
 
       if (!userId) {
@@ -248,7 +252,7 @@ export class ProfileController {
 
   async addEducation(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const educationData = req.body;
 
       if (!userId) {
@@ -256,7 +260,6 @@ export class ProfileController {
         return;
       }
 
-      // Validate required fields
       if (!educationData.institutuion || !educationData.degree) {
         res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
           error: "Institution and degree are required" 
@@ -277,7 +280,7 @@ export class ProfileController {
 
   async updateEducation(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const educationId = req.params.id;
       const educationData = req.body;
 
@@ -312,7 +315,7 @@ export class ProfileController {
 
   async deleteEducation(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
+      const userId = req.headers['x-user-id'] as string;
       const educationId = req.params.id;
 
       if (!userId) {

@@ -4,6 +4,7 @@ import TYPES from "./types";
 import { UserService } from "../services/UserService";
 import { UserRepository } from "../repositories/UserRepository";
 import { EmailService } from "../services/EmailService";
+import { RedisService } from "../services/RedisService";
 import { UserController } from "../controllers/UserController";
 import { AdminRepository } from "../repositories/AdminRepository";
 import { AdminService } from "../services/AdminService";
@@ -18,6 +19,7 @@ import { ProfileService } from "../services/ProfileService";
 import { IProfileService } from "../services/IProfileService";
 import { ProfileController } from "../controllers/ProfileController";
 import { CompanyApiRepository, ICompanyApiRepository } from "../repositories/CompanyApiRepository";
+import { JWTService } from "../services/JWTService";
 
 
 const container = new Container();
@@ -26,6 +28,7 @@ container.bind<UserService>(TYPES.UserService).to(UserService);
 container.bind<IUserService>(TYPES.IUserService).to(UserService);
 container.bind<IUserRepository>(TYPES.IUserRepository).to(UserRepository);
 container.bind<EmailService>(TYPES.EmailService).to(EmailService);
+container.bind<RedisService>(TYPES.RedisService).to(RedisService).inSingletonScope();
 container.bind<UserController>(TYPES.UserController).to(UserController);
 container.bind<AdminRepository>(TYPES.AdminRepository).to(AdminRepository);
 container.bind<IAdminRepository>(TYPES.IAdminRepository).to(AdminRepository);
@@ -36,4 +39,5 @@ container.bind<IProfileRepository>(TYPES.IProfileRepository).to(ProfileRepositor
 container.bind<IProfileService>(TYPES.IProfileService).to(ProfileService);
 container.bind<ProfileController>(TYPES.ProfileController).to(ProfileController);
 container.bind<ICompanyApiRepository>(TYPES.ICompanyApiRepository).to(CompanyApiRepository);
+container.bind<JWTService>(TYPES.JWTService).to(JWTService);
 export default container;

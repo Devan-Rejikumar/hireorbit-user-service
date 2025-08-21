@@ -2,11 +2,16 @@ import { injectable } from "inversify";
 import { prisma } from "../prisma/client";
 import { User, Otp } from "@prisma/client";
 import { IUserRepository } from "./IUserRepository";
+import { BaseRepository } from "./BaseRepository";
+import { PaginationResult } from "../interfaces/IBaseRepository";
 
 @injectable()
-export class UserRepository implements IUserRepository {
+export class UserRepository extends BaseRepository<User> implements IUserRepository {
+  protected getModel(){
+    return prisma.user;
+  }
   async findByEmail(email: string): Promise<User | null> {
-    return prisma.user.findUnique({ where: { email } });
+    return this.findOne({email});
   }
 
   async createUser(data: {
@@ -16,14 +21,14 @@ export class UserRepository implements IUserRepository {
     profilePicture?: string;
     isGoogleUser?: boolean;
   }): Promise<User> {
-    const user = await prisma.user.create({
-      data: {
+    const user = await this.create({
+    
         email: data.email,
         password: data.password,
         name: data.name, 
         role: "jobseeker", 
         isVerified: data.isGoogleUser || false, 
-      },
+      
     });
 
    
@@ -64,21 +69,16 @@ export class UserRepository implements IUserRepository {
       where: { email },
     });
   }
-  async getAllUsers() {
-    return prisma.user.findMany({ where: { role: "jobseeker" } });
+  async getAllUsers(page: number = 1, limit: number = 10) {
+    return this.findWithPagination(page, limit, {role:'jobseeker'})
   }
-  async blockUser(id: string) {
-    return prisma.user.update({
-      where: { id },
-      data: { isBlocked: true },
-    });
+ 
+  async blockUser(id: string): Promise<User> {
+    return this.update(id, {isBlocked:true})
   }
 
-  async unblockUser(id: string) {
-    return prisma.user.update({
-      where: { id },
-      data: { isBlocked: false },
-    });
+  async unblockUser(id: string): Promise<User> {
+    return this.update(id, {isBlocked:false})
   }
 
   async savePasswordResetOTP(
@@ -93,7 +93,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async findPasswordResetOTP(email: string, otp: string): Promise<any> {
+  async findPasswordResetOTP(email: string, otp: string){
     return prisma.passwordReset.findFirst({
       where: { email, otp },
     });
@@ -113,9 +113,6 @@ export class UserRepository implements IUserRepository {
   }
 
   async updateUserName(userId: string, name: string): Promise<User> {
-    return prisma.user.update({
-      where: { id: userId },
-      data: { name },
-    });
+    return this.update(userId, {name})
   }
 }

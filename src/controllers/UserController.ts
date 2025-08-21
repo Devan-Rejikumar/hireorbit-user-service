@@ -39,50 +39,81 @@ export class UserController {
       }
     }
   }
-
-  async login(req: Request, res: Response): Promise<void> {
-    try {
-      const { email, password } = req.body;
-      if(!email || !password){
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({error:"Email and password are required"});
-        return
-      }
-      const { user, token } = await this.userService.login(email, password);
-
-      console.log("Generated token:", token.substring(0, 20) + "...");
-      console.log("Setting cookie with token");
-
-      res
-        .cookie("token", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 24 * 60 * 60 * 1000,
-        })
-        .status(AuthStatusCode.LOGIN_SUCCESS)
-        .json({ user });
-    } catch (err: any) {
-      console.error("Login error:", err);
-      if(err.message==='Invalid credentials' || err.message==='Usder not found'){
-        res.status(AuthStatusCode.INVALID_CREDENTIALS).json({error:"Invalid email or password"});
-      }else if(err.message==="Account blocked"){
-        res.status(AuthStatusCode.ACCOUNT_BLOCKED).json({error:err.message})
-      }else {
-         res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: err.message });
-      }
-     
+async login(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      throw new Error('Email and password are required');
     }
+    
+    const result = await this.userService.login(email, password);
+    
+
+    res.cookie('accessToken', result.tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+    res.cookie('refreshToken',result.tokens.refreshToken,{
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7*24*60*60*1000
+    })
+    
+    res.status(HttpStatusCode.OK).json({ user: result.user });
+  } catch (error: any) {
+    res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
   }
+}
+
+async refreshToken(req: Request, res: Response): Promise<void>{
+  try {
+    const {refreshToken} = req.body;
+    if(!refreshToken) {
+      res.status(HttpStatusCode.BAD_REQUEST).json({error:' refresh token is required'});
+      return
+    }
+    const result = await this.userService.refreshToken(refreshToken);
+    res.cookie('accessToken', result.accessToken,{
+      httpOnly: true,
+      secure: process.env.NODE_ENV==='production',
+      sameSite:'strict',
+      maxAge:15*60*1000
+    });
+    res.status(HttpStatusCode.OK).json({message:'Token refreshed sucessfully'})
+  } catch (error) {
+    
+  }
+}
+
+
+
   async generateOTP(req: Request, res: Response): Promise<void> {
+    console.log(` [UserController] generateOTP called`);
+    console.log(` [UserController] Request body:`, req.body);
+    console.log(` [UserController] Request headers:`, req.headers);
+    
     try {
       const { email } = req.body;
+      console.log(`[UserController] Extracted email: ${email}`);
+      
       if (!email) {
+        console.log(` [UserController] Email is missing`);
         res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "Email is required" });
         return;
       }
+      
+      console.log(` [UserController] Calling userService.generateOTP(${email})`);
       const result = await this.userService.generateOTP(email);
+      console.log(` [UserController] generateOTP result:`, result);
+      
       res.status(HttpStatusCode.OK).json(result);
+      console.log(`🔍 [UserController] Response sent successfully`);
     } catch (err: any) {
+      console.log(` [UserController] Error in generateOTP:`, err.message);
+      console.log(` [UserController] Error stack:`, err.stack);
+      
       if(err.message==="Email alredy registered"){
         res.status(AuthStatusCode.EMAIL_ALREADY_EXISTS).json({error:err.message})
       }else{
@@ -125,20 +156,46 @@ export class UserController {
     }
   }
 
+
   async getMe(req: Request, res: Response): Promise<void> {
-    const user = (req as any).user;
-    if (!user) {
-      res.status(HttpStatusCode.UNAUTHORIZED).json({ error: "Unauthorized" });
+  try {
+    const userId = req.headers['x-user-id'] as string;
+    const userEmail = req.headers['x-user-email'] as string;
+    const userRole = req.headers['x-user-role'] as string;
+
+    if (!userId) {
+      res.status(401).json({ error: "User not authenticated" });
       return;
     }
-    const { id, name, email } = user;
-    res.status(HttpStatusCode.OK).json({id, name, email});
-  }
 
-  async logout(req: Request, res: Response): Promise<void> {
-    res.clearCookie("token", { httpOnly: true, sameSite: "lax" });
-    res.status(HttpStatusCode.OK).json({message:"Logged out successsfully"});
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
   }
+}
+
+
+async logout(req: Request, res: Response): Promise<void> {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    
+    if (refreshToken) {
+      await this.userService.logoutWithToken(refreshToken);
+    }
+
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (error: any) {
+    res.status(500).json({ error: "Logout failed" });
+  }
+}
 
   async forgotPassword(req: Request, res: Response): Promise<void> {
     try {
@@ -163,6 +220,7 @@ export class UserController {
       const { email, otp } = req.body;
       if(!email || !otp){
         res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({error:" Email and Otp are required"})
+        return;
       }
       await this.userService.verifyPasswordResetOTP(email, otp);
       res.status(HttpStatusCode.OK).json({ message: "OTP verified successfully" });
@@ -195,13 +253,19 @@ export class UserController {
 
   async updateName(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.id;
-      const { name } = req.body;
+      // const userId = (req as any).user.id;
+      // const { name } = req.body;
+      const userId = req.headers['x-user-id'] as string;
+    const { name } = req.body;
 
-      if (!name || name.trim() === "") {
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "Name is required" });
-        return;
-      }
+      // if (!name || name.trim() === "") {
+      //   res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "Name is required" });
+      //   return;
+      // }
+       if (!userId) {
+      res.status(401).json({ error: "User not authenticated" });
+      return;
+    }
 
       const updatedUser = await this.userService.updateUserName(
         userId,
