@@ -1,6 +1,6 @@
 import { injectable, inject } from "inversify";
 import { UserProfile, Experience, Education } from "@prisma/client";
-import { IProfileService } from "./IProfileService";
+import { IProfileService, ProfileData, ExperienceData, EducationData } from "./IProfileService";
 import { IProfileRepository } from "../repositories/IProfileRepository";
 import { IUserProfile } from "../types/profile";
 import TYPES from "../config/types";
@@ -10,11 +10,11 @@ export class ProfileService implements IProfileService {
   constructor(
     @inject(TYPES.IProfileRepository)
     private profileRepository: IProfileRepository
-  ) {}
+  ) { }
 
   async createProfile(
     userId: string,
-    profileData: Partial<IUserProfile>
+    profileData: ProfileData
   ): Promise<UserProfile> {
     const existingProfile = await this.profileRepository.getUserProfile(userId);
     if (existingProfile) {
@@ -30,7 +30,7 @@ export class ProfileService implements IProfileService {
 
   async updateProfile(
     userId: string,
-    profileData: Partial<IUserProfile>
+    profileData: Partial<ProfileData>
   ): Promise<UserProfile> {
     const existingProfile = await this.profileRepository.getUserProfile(userId);
     if (!existingProfile) {
@@ -51,9 +51,9 @@ export class ProfileService implements IProfileService {
 
   async getFullProfile(userId: string): Promise<
     | (UserProfile & {
-        experience: Experience[];
-        education: Education[];
-      })
+      experience: Experience[];
+      education: Education[];
+    })
     | null
   > {
     return this.profileRepository.getFullProfile(userId);
@@ -61,10 +61,7 @@ export class ProfileService implements IProfileService {
 
   async addExperience(
     userId: string,
-    experienceData: Omit<
-      Experience,
-      "id" | "profileId" | "createdAt" | "updatedAt"
-    >
+    experienceData: ExperienceData
   ): Promise<Experience> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
@@ -77,9 +74,7 @@ export class ProfileService implements IProfileService {
   async updateExperience(
     userId: string,
     experienceId: string,
-    experienceData: Partial<
-      Omit<Experience, "id" | "profileId" | "createdAt" | "updatedAt">
-    >
+    experienceData: Partial<ExperienceData>
   ): Promise<Experience> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
@@ -119,10 +114,7 @@ export class ProfileService implements IProfileService {
 
   async addEducation(
     userId: string,
-    educationData: Omit<
-      Education,
-      "id" | "profileId" | "createdAt" | "updatedAt"
-    >
+    educationData: EducationData
   ): Promise<Education> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
@@ -135,9 +127,7 @@ export class ProfileService implements IProfileService {
   async updateEducation(
     userId: string,
     educationId: string,
-    educationData: Partial<
-      Omit<Education, "id" | "profileId" | "createdAt" | "updatedAt">
-    >
+    educationData: Partial<EducationData>
   ): Promise<Education> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
@@ -162,10 +152,10 @@ export class ProfileService implements IProfileService {
     }
 
     const fullProfile = await this.profileRepository.getFullProfile(userId);
-    const educationExists = fullProfile?.education.some(
+    const experienceExists = fullProfile?.education.some(
       (edu) => edu.id === educationId
     );
-    if (!educationExists) {
+    if (!experienceExists) {
       throw new Error("Education not found or doesn't belong to this user");
     }
 

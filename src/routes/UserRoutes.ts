@@ -2,7 +2,7 @@ import { Router } from "express";
 import container from "../config/inversify.config";
 import TYPES from "../config/types";
 import { UserController } from "../controllers/UserController";
-import { authenticateUserJWT } from "../middleware/auth";
+
 
 const router = Router();
 const userController = container.get<UserController>(TYPES.UserController);

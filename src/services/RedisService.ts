@@ -12,11 +12,10 @@ export class RedisService {
       password: process.env.REDIS_PASSWORD,
       lazyConnect: true,
       keepAlive: 30000,
-      // retryDelayOnFailover: 100,
       maxRetriesPerRequest: 3,
     });
 
-    this.redis.on("error", (error: any) => {
+    this.redis.on("error", (error: Error) => {
       console.error("Redis connection error:", error);
     });
 

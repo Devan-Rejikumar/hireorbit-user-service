@@ -12,6 +12,44 @@ export class AdminController {
     @inject(TYPES.IUserService) private userService: IUserService
   ) {}
 
+  // async login(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const { email, password } = req.body;
+  //     console.log(`[AdminController] 2. Attempting login for email: ${email}`);
+
+  //     if (!email || !password) {
+  //       res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
+  //         error: "Email and password are required" 
+  //       });
+  //       return;
+  //     }
+
+  //     const { admin, token } = await this.adminService.login(email, password);
+  //     console.log(`[AdminController] 3. Token generated successfully: ${token.substring(0, 20)}...`);
+      
+  //     res.cookie("admintoken", token, {
+  //       httpOnly: true,
+  //       secure: process.env.NODE_ENV === "production",
+  //       sameSite: "lax",
+  //       maxAge: 24 * 60 * 60 * 1000,
+  //     });
+
+  
+  //     console.log('[AdminController] 3a. Response headers prepared in user-service:', res.getHeaders());
+
+  //     res.status(AuthStatusCode.LOGIN_SUCCESS).json({ admin });
+
+  //   } catch (err: any) {
+  //     if (err.message === "Invalid credentials" || err.message === "Admin not found") {
+  //       res.status(AuthStatusCode.INVALID_CREDENTIALS).json({ error: "Invalid email or password" });
+  //     } else if (err.message === "Account blocked") {
+  //       res.status(AuthStatusCode.ACCOUNT_BLOCKED).json({ error: err.message });
+  //     } else {
+  //       res.status(HttpStatusCode.BAD_REQUEST).json({ error: err.message });
+  //     }
+  //   }
+  // }
+
   async login(req: Request, res: Response): Promise<void> {
     try {
       const { email, password } = req.body;
@@ -24,17 +62,21 @@ export class AdminController {
         return;
       }
 
-      const { admin, token } = await this.adminService.login(email, password);
-      console.log(`[AdminController] 3. Token generated successfully: ${token.substring(0, 20)}...`);
-      
-      res.cookie("admintoken", token, {
+      const { admin, tokens } = await this.adminService.login(email, password);
+      console.log(`[AdminController] 3. Tokens generated successfully`);
+      res.cookie("adminAccessToken", tokens.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 24 * 60 * 60 * 1000,
+        maxAge: 15 * 60 * 1000, 
+      });
+      res.cookie("adminRefreshToken", tokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax", 
+        maxAge: 7 * 24 * 60 * 60 * 1000, 
       });
 
-  
       console.log('[AdminController] 3a. Response headers prepared in user-service:', res.getHeaders());
 
       res.status(AuthStatusCode.LOGIN_SUCCESS).json({ admin });
@@ -47,6 +89,30 @@ export class AdminController {
       } else {
         res.status(HttpStatusCode.BAD_REQUEST).json({ error: err.message });
       }
+    }
+  }
+
+    async refreshToken(req: Request, res: Response): Promise<void> {
+    try {
+      const refreshToken = req.cookies.adminRefreshToken || req.body.refreshToken;
+      
+      if (!refreshToken) {
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: 'Admin refresh token is required' });
+        return;
+      }
+
+      const result = await this.adminService.refreshToken(refreshToken);
+      
+      res.cookie('adminAccessToken', result.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000 
+      });
+
+      res.status(HttpStatusCode.OK).json({ message: 'Admin token refreshed successfully' });
+    } catch (error) {
+      res.status(HttpStatusCode.FORBIDDEN).json({ error: 'Invalid admin refresh token' });
     }
   }
 
@@ -135,15 +201,31 @@ export class AdminController {
     }
   }
 
-  async logout(req: Request, res: Response): Promise<void> {
-    res.clearCookie('admintoken', {
+ async logout(req: Request, res: Response): Promise<void>{
+  try {
+    const refreshToken = req.cookies.adminRefreshToken;
+    if(refreshToken){
+      await this.adminService.logoutWithToken(refreshToken);
+    }
+    res.clearCookie("adminAccessToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: 'lax',
-      path: '/',
+      sameSite: "lax",
+      path: "/"
     });
-    res.status(HttpStatusCode.OK).json({ message: 'Logged out successfully' });
+    
+    res.clearCookie("adminRefreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/"
+    });
+    
+    res.status(200).json({ message: "Admin logged out successfully" });
+  } catch (error) {
+    res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: "Admin logout failed" });
   }
+ }
 
   async me(req: Request, res: Response): Promise<void> {
     const adminId = req.headers['x-user-id'] as string;
