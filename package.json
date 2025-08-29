@@ -33,9 +33,11 @@
     "prisma": "^6.10.1",
     "redis": "^5.8.1",
     "reflect-metadata": "^0.2.2",
+    "shared-dto": "file:../shared-dto",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^4.1.1"
   },
   "devDependencies": {
     "@types/axios": "^0.9.36",

@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
 import { injectable, inject } from "inversify";
 import TYPES from "../config/types";
-import { UserService } from "../services/UserService";
 import { IUserService } from "../services/IUserService";
 import admin from "firebase-admin";
 import jwt from "jsonwebtoken";
 import path from "path";
 import { HttpStatusCode,AuthStatusCode, ValidationStatusCode } from "../enums/StatusCodes";
-import { error } from "console";
+import { UserRegisterSchema, UserLoginSchema, GenerateOTPSchema, VerifyOTPSchema, RefreshTokenSchema, ResendOTPSchema, ForgotPasswordSchema, ResetPasswordSchema, UpdateNameSchema, GoogleAuthSchema } from "../dto/schemas/auth.schema";
+import { UpdateProfileSchema, ExperienceSchema, EducationSchema, SkillsSchema } from "../dto/schemas/profile.schema";
+import { mapUserToResponse, mapProfileToResponse } from "../dto/mappers/user.mapper";
+import { buildSuccessResponse, buildErrorResponse, buildListResponse } from "shared-dto";
+
 
 
 if (!admin.apps.length) {
@@ -25,29 +28,43 @@ if (!admin.apps.length) {
 @injectable()
 export class UserController {
   constructor(@inject(TYPES.IUserService) private userService: IUserService) {}
-
-  async register(req: Request, res: Response): Promise<void> {
-    try {
-      const { email, password, name, role } = req.body;
-      const user = await this.userService.register(email, password, name, role);
-      res.status(AuthStatusCode.REGISTRATION_SUCCESS).json({ user });
-    } catch (err: any) {
-      if (err.message === "Email already in use") {
-        res.status(AuthStatusCode.EMAIL_ALREADY_EXISTS).json({ error: err.message });
-      } else {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: err.message });
-      }
+async register(req: Request, res: Response): Promise<void> {
+  try {
+    const validationResult = UserRegisterSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(
+        buildErrorResponse('Validation failed', validationResult.error.message)
+      );
+      return;
+    }
+    const { email, password, name, role } = validationResult.data;
+    const user = await this.userService.register(email, password, name, role);
+    res.status(AuthStatusCode.REGISTRATION_SUCCESS).json(
+      buildSuccessResponse(user, 'User registered successfully')
+    );
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    if (errorMessage === "Email already in use") {
+      res.status(AuthStatusCode.EMAIL_ALREADY_EXISTS).json(
+        buildErrorResponse(errorMessage, 'Registration failed')
+      );
+    } else {
+      res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json(
+        buildErrorResponse(errorMessage, 'Internal server error')
+      );
     }
   }
+}
 async login(req: Request, res: Response): Promise<void> {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      throw new Error('Email and password are required');
+    const validationResult = UserLoginSchema.safeParse(req.body);
+    if(!validationResult.success){
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(buildErrorResponse('Validation failed', validationResult.error.message));
+      return
     }
-    
+
+    const { email, password } = validationResult.data; 
     const result = await this.userService.login(email, password);
-    
 
     res.cookie('accessToken', result.tokens.accessToken, {
       httpOnly: true,
@@ -61,19 +78,22 @@ async login(req: Request, res: Response): Promise<void> {
       maxAge: 7*24*60*60*1000
     })
     
-    res.status(HttpStatusCode.OK).json({ user: result.user });
-  } catch (error: any) {
-    res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+    res.status(HttpStatusCode.OK).json(buildSuccessResponse(result.user,'Login successful'));
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'unknown error';
+    res.status(HttpStatusCode.BAD_REQUEST).json(buildErrorResponse(errorMessage,'Login failed'))
   }
 }
 
 async refreshToken(req: Request, res: Response): Promise<void>{
   try {
-    const {refreshToken} = req.body;
-    if(!refreshToken) {
-      res.status(HttpStatusCode.BAD_REQUEST).json({error:' refresh token is required'});
-      return
+    const validationResult = RefreshTokenSchema.safeParse(req.body);
+    if(!validationResult.success){
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(buildErrorResponse('Validation failed', validationResult.error.message));
+      return;
     }
+    const {refreshToken} = validationResult.data;
+
     const result = await this.userService.refreshToken(refreshToken);
     res.cookie('accessToken', result.accessToken,{
       httpOnly: true,
@@ -81,78 +101,70 @@ async refreshToken(req: Request, res: Response): Promise<void>{
       sameSite:'strict',
       maxAge:15*60*1000
     });
-    res.status(HttpStatusCode.OK).json({message:'Token refreshed sucessfully'})
-  } catch (error) {
-    
+    res.status(HttpStatusCode.OK).json(buildSuccessResponse(null, 'Token refreshed successfully'))
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'unknown error'
+    res.status(HttpStatusCode.BAD_REQUEST).json(buildErrorResponse(errorMessage,'Token refreshed failed'))
   }
 }
 
-
-
   async generateOTP(req: Request, res: Response): Promise<void> {
-    console.log(` [UserController] generateOTP called`);
-    console.log(` [UserController] Request body:`, req.body);
-    console.log(` [UserController] Request headers:`, req.headers);
-    
     try {
-      const { email } = req.body;
-      console.log(`[UserController] Extracted email: ${email}`);
-      
-      if (!email) {
-        console.log(` [UserController] Email is missing`);
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "Email is required" });
-        return;
-      }
-      
-      console.log(` [UserController] Calling userService.generateOTP(${email})`);
+          const validationResult = GenerateOTPSchema.safeParse(req.body);
+    if(!validationResult.success){
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(buildErrorResponse('Validation failed', validationResult.error.message));
+      return;
+    }
+      const { email } = validationResult.data;
+
       const result = await this.userService.generateOTP(email);
-      console.log(` [UserController] generateOTP result:`, result);
-      
-      res.status(HttpStatusCode.OK).json(result);
-      console.log(`🔍 [UserController] Response sent successfully`);
-    } catch (err: any) {
-      console.log(` [UserController] Error in generateOTP:`, err.message);
-      console.log(` [UserController] Error stack:`, err.stack);
-      
-      if(err.message==="Email alredy registered"){
-        res.status(AuthStatusCode.EMAIL_ALREADY_EXISTS).json({error:err.message})
+      res.status(HttpStatusCode.OK).json(buildSuccessResponse(result,'OTP generated successfully'));
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'unknown error'
+      if(errorMessage==="Email alredy registered"){
+        res.status(AuthStatusCode.EMAIL_ALREADY_EXISTS).json(buildErrorResponse(errorMessage,'OTP generation failed'))
       }else{
-        res.status(HttpStatusCode.BAD_REQUEST).json({error: err.message})
+        res.status(HttpStatusCode.BAD_REQUEST).json(buildErrorResponse(errorMessage,'OTP generation failed'))
       }
     }
   }
 
   async verifyOTP(req: Request, res: Response): Promise<void> {
     try {
-      const { email, otp } = req.body;
-      if (!email || !otp) {
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "Email and OTP are required" });
+      const validationResult = VerifyOTPSchema.safeParse(req.body);
+      if(!validationResult.success){
+        res.status(ValidationStatusCode.VALIDATION_ERROR).json(buildErrorResponse('Validation failed',validationResult.error.message));
         return;
       }
+      const { email, otp } = validationResult.data;
       const result = await this.userService.verifyOTP(email, parseInt(otp));
-      res.status(HttpStatusCode.OK).json(result);
-    } catch (err: any) {
-      if(err.message === 'OTP has expired'){
-        res.status(AuthStatusCode.OTP_EXPIRED).json({error:err.message});
-      }else if (err.message=== 'Invalid OTP'){
-        res.status(HttpStatusCode.BAD_REQUEST).json({error:err.message});
+      res.status(HttpStatusCode.OK).json(buildSuccessResponse(result,'OTP verified successfully'));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      if(errorMessage === 'OTP has expired'){
+        res.status(AuthStatusCode.OTP_EXPIRED).json(buildErrorResponse(errorMessage,'OTP verification failed'));
+      }else if (errorMessage=== 'Invalid OTP'){
+        res.status(HttpStatusCode.BAD_REQUEST).json(buildErrorResponse(errorMessage,'OTP verification failed'));
       } else{
-        res.status(HttpStatusCode.BAD_REQUEST).json({error:err.message});
+        res.status(HttpStatusCode.BAD_REQUEST).json(buildErrorResponse(errorMessage,'OTP verification failed'));
       }
     }
   }
 
   async resendOTP(req: Request, res: Response): Promise<void> {
     try {
-      const { email } = req.body;
-      if (!email) {
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "Email is required" });
+      const validationResult = ResendOTPSchema.safeParse(req.body);
+      if(!validationResult.success){
+        res.status(ValidationStatusCode.VALIDATION_ERROR).json(buildErrorResponse('Validation failed', validationResult.error.message));
         return;
       }
+      const { email } = validationResult.data;
       const result = await this.userService.resendOTP(email);
-      res.status(HttpStatusCode.OK).json(result);
-    } catch (err: any) {
-      res.status(HttpStatusCode.BAD_REQUEST).json({ error: err.message });
+      res.status(HttpStatusCode.OK).json(buildSuccessResponse(result,'OTP resent successfully'));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      res.status(HttpStatusCode.BAD_REQUEST).json(buildErrorResponse(errorMessage,'OTP resend failed'));
     }
   }
 
@@ -199,132 +211,159 @@ async logout(req: Request, res: Response): Promise<void> {
 
   async forgotPassword(req: Request, res: Response): Promise<void> {
     try {
-      const { email } = req.body;
-      if(!email){
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({error:"Email is required"});
-        return
+      const validationResult = ForgotPasswordSchema.safeParse(req.body);
+      if(!validationResult.success){
+        res.status(ValidationStatusCode.VALIDATION_ERROR).json(buildErrorResponse('Validation failed', validationResult.error.message));
+        return;
       }
+      const { email } = validationResult.data;
       await this.userService.forgotPassword(email);
-      res.status(HttpStatusCode.OK).json({ message: "Password reset OTP sent successfully" });
-    } catch (error: any) {
-      if (error.message === "User not found") {
-        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
+      res.status(HttpStatusCode.OK).json(buildSuccessResponse(null,'Password reset OTP sent successfully'));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      if (errorMessage === "User not found") {
+        res.status(HttpStatusCode.NOT_FOUND).json(buildErrorResponse(errorMessage,'Password reset failed'));
       } else {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+        res.status(HttpStatusCode.BAD_REQUEST).json(buildErrorResponse(errorMessage,'Password reset failed'));
       }
     }
   }
 
-  async verifyPasswordResetOTP(req: Request, res: Response): Promise<void> {
-    try {
-      const { email, otp } = req.body;
-      if(!email || !otp){
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({error:" Email and Otp are required"})
-        return;
-      }
-      await this.userService.verifyPasswordResetOTP(email, otp);
-      res.status(HttpStatusCode.OK).json({ message: "OTP verified successfully" });
-    } catch (error: any) {
-      if (error.message === "Invalid or expired OTP") {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
-      } else {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
-      }
-    }
-  }
-
-  async resetPassword(req: Request, res: Response): Promise<void> {
-    try {
-      const { email, newPassword, confirmPassword } = req.body;
-      if (!email || !newPassword || !confirmPassword) {
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "All fields are required" });
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        res.status(ValidationStatusCode.VALIDATION_ERROR).json({ error: "Passwords do not match" });
-        return;
-      }
-      await this.userService.resetPassword(email, newPassword);
-      res.status(HttpStatusCode.OK).json({ message: "Password reset successful" });
-    } catch (error: any) {
-      res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
-    }
-  }
-
-  async updateName(req: Request, res: Response): Promise<void> {
-    try {
-      // const userId = (req as any).user.id;
-      // const { name } = req.body;
-      const userId = req.headers['x-user-id'] as string;
-    const { name } = req.body;
-
-      // if (!name || name.trim() === "") {
-      //   res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ error: "Name is required" });
-      //   return;
-      // }
-       if (!userId) {
-      res.status(401).json({ error: "User not authenticated" });
+async verifyPasswordResetOTP(req: Request, res: Response): Promise<void> {
+  try {
+    const validationResult = VerifyOTPSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(
+        buildErrorResponse('Validation failed', validationResult.error.message)
+      );
       return;
     }
-
-      const updatedUser = await this.userService.updateUserName(
-        userId,
-        name.trim()
+    const { email, otp } = validationResult.data;
+    await this.userService.verifyPasswordResetOTP(email, otp);
+    res.status(HttpStatusCode.OK).json(
+      buildSuccessResponse(null, 'OTP verified successfully')
+    );
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    
+    if (errorMessage === "Invalid or expired OTP") {
+      res.status(HttpStatusCode.BAD_REQUEST).json(
+        buildErrorResponse(errorMessage, 'OTP verification failed')
       );
-      res.status(HttpStatusCode.OK).json({ user: updatedUser });
-    } catch (error: any) {
-      res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+    } else {
+      res.status(HttpStatusCode.BAD_REQUEST).json(
+        buildErrorResponse(errorMessage, 'OTP verification failed')
+      );
     }
   }
+}
 
-  async googleAuth(req: Request, res: Response): Promise<void> {
-    try {
-      const { idToken, email, name, photoURL } = req.body;
-      
-      if (!idToken || !email) {
-        res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
-          error: "ID token and email are required" 
-        });
-        return;
-      }
-
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
-      
-      if (decodedToken.email !== email) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: "Invalid token" });
-        return;
-      }
-
-      let user = await this.userService.findByEmail(email);
-      let isNewUser = false;
-
-      if (!user) {
-        user = await this.userService.createGoogleUser({
-          email,
-          fullName: name || email.split("@")[0],
-          profilePicture: photoURL,
-        });
-        isNewUser = true;
-      }
-
-      const token = jwt.sign(
-        { userId: user.id, email: user.email, role: "jobseeker" },
-        process.env.JWT_SECRET || "supersecret",
-        { expiresIn: "24h" }
+async resetPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const validationResult = ResetPasswordSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(
+        buildErrorResponse('Validation failed', validationResult.error.message)
       );
+      return;
+    }
+    const { email, newPassword } = validationResult.data;
+    await this.userService.resetPassword(email, newPassword);
+    res.status(HttpStatusCode.OK).json(
+      buildSuccessResponse(null, 'Password reset successful')
+    );
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    res.status(HttpStatusCode.BAD_REQUEST).json(
+      buildErrorResponse(errorMessage, 'Password reset failed')
+    );
+  }
+}
 
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 24 * 60 * 60 * 1000,
+async updateName(req: Request, res: Response): Promise<void> {
+  try {
+    const validationResult = UpdateNameSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(
+        buildErrorResponse('Validation failed', validationResult.error.message)
+      );
+      return;
+    }
+    const userId = req.headers['x-user-id'] as string;
+    const { name } = validationResult.data;
+    
+    if (!userId) {
+      res.status(401).json(
+        buildErrorResponse('User not authenticated', 'Authentication required')
+      );
+      return;
+    }
+    
+    const updatedUser = await this.userService.updateUserName(userId, name);
+    res.status(HttpStatusCode.OK).json(
+      buildSuccessResponse({ user: updatedUser }, 'Name updated successfully')
+    );
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    res.status(HttpStatusCode.BAD_REQUEST).json(
+      buildErrorResponse(errorMessage, 'Name update failed')
+    );
+  }
+}
+
+async googleAuth(req: Request, res: Response): Promise<void> {
+  try {
+    const validationResult = GoogleAuthSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      res.status(ValidationStatusCode.VALIDATION_ERROR).json(
+        buildErrorResponse('Validation failed', validationResult.error.message)
+      );
+      return;
+    }
+    const { idToken, email, name, photoURL } = validationResult.data;
+    
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    
+    if (decodedToken.email !== email) {
+      res.status(HttpStatusCode.BAD_REQUEST).json(
+        buildErrorResponse('Invalid token', 'Authentication failed')
+      );
+      return;
+    }
+    
+    let user = await this.userService.findByEmail(email);
+    let isNewUser = false;
+    
+    if (!user) {
+      user = await this.userService.createGoogleUser({
+        email,
+        fullName: name || email.split("@")[0],
+        profilePicture: photoURL,
       });
-
-      res.status(isNewUser ? AuthStatusCode.REGISTRATION_SUCCESS : AuthStatusCode.LOGIN_SUCCESS)
-         .json({ user, token, isNewUser });
-    } catch (error: any) {
-      console.error('Google auth error:', error);
-      res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+      isNewUser = true;
     }
+    
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: "jobseeker" },
+      process.env.JWT_SECRET || "supersecret",
+      { expiresIn: "24h" }
+    );
+    
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+    res.status(isNewUser ? AuthStatusCode.REGISTRATION_SUCCESS : AuthStatusCode.LOGIN_SUCCESS)
+       .json(buildSuccessResponse({ user, token, isNewUser }, 
+         isNewUser ? 'Google user registered successfully' : 'Google login successful'));
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Google auth error:', errorMessage);
+    res.status(HttpStatusCode.BAD_REQUEST).json(
+      buildErrorResponse(errorMessage, 'Google authentication failed')
+    );
   }
+}
 }

@@ -12,43 +12,7 @@ export class AdminController {
     @inject(TYPES.IUserService) private userService: IUserService
   ) {}
 
-  // async login(req: Request, res: Response): Promise<void> {
-  //   try {
-  //     const { email, password } = req.body;
-  //     console.log(`[AdminController] 2. Attempting login for email: ${email}`);
 
-  //     if (!email || !password) {
-  //       res.status(ValidationStatusCode.MISSING_REQUIRED_FIELDS).json({ 
-  //         error: "Email and password are required" 
-  //       });
-  //       return;
-  //     }
-
-  //     const { admin, token } = await this.adminService.login(email, password);
-  //     console.log(`[AdminController] 3. Token generated successfully: ${token.substring(0, 20)}...`);
-      
-  //     res.cookie("admintoken", token, {
-  //       httpOnly: true,
-  //       secure: process.env.NODE_ENV === "production",
-  //       sameSite: "lax",
-  //       maxAge: 24 * 60 * 60 * 1000,
-  //     });
-
-  
-  //     console.log('[AdminController] 3a. Response headers prepared in user-service:', res.getHeaders());
-
-  //     res.status(AuthStatusCode.LOGIN_SUCCESS).json({ admin });
-
-  //   } catch (err: any) {
-  //     if (err.message === "Invalid credentials" || err.message === "Admin not found") {
-  //       res.status(AuthStatusCode.INVALID_CREDENTIALS).json({ error: "Invalid email or password" });
-  //     } else if (err.message === "Account blocked") {
-  //       res.status(AuthStatusCode.ACCOUNT_BLOCKED).json({ error: err.message });
-  //     } else {
-  //       res.status(HttpStatusCode.BAD_REQUEST).json({ error: err.message });
-  //     }
-  //   }
-  // }
 
   async login(req: Request, res: Response): Promise<void> {
     try {
