@@ -7,7 +7,16 @@ import profileRoutes from "./routes/ProfileRoutes";
 
 const app = express();
 
-app.use(express.json());
+app.use((req, res, next) => {
+  if (req.headers['content-type']?.includes('application/json, application/json')) {
+    req.headers['content-type'] = 'application/json';
+    console.log('🔧 Fixed malformed Content-Type header');
+  }
+  next();
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(
   cors({

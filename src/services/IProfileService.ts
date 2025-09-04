@@ -8,25 +8,27 @@ export interface ProfileData {
   phone?: string;
   skills?: string[];
 }
-export interface ExperienceData{
+
+export interface ExperienceData {
   title: string;
   company: string;
-  location: string | null;
+  location?: string;
   startDate: Date;
-  endDate: Date | null;
+  endDate?: Date;
   isCurrentRole: boolean;
-  description: string | null;
+  description?: string;
 }
 
 export interface EducationData {
-  institutuion: string; 
+  institution: string;
   degree: string;
-  fieldOfStudy: string;
+  fieldOfStudy?: string;
   startDate: Date;
-  endDate: Date | null;
-  grade: string | null;
-  description: string | null;
+  endDate?: Date;
+  grade?: string;
+  description?: string;
 }
+
 export interface IProfileService {
   createProfile(userId: string, profileData: ProfileData): Promise<UserProfile>;
   getProfile(userId: string): Promise<UserProfile | null>;

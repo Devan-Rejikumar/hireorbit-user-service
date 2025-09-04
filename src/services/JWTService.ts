@@ -7,7 +7,7 @@ import { AccessTokenPayload, RefreshTokenPayload, TokenPair } from "../types/aut
 export class JWTService {
   private readonly ACCESS_TOKEN_SECRET = process.env.JWT_SECRET || "supersecret";
   private readonly REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || "refresh_secret";
-  private readonly ACCESS_TOKEN_EXPIRY = "15m"; 
+  private readonly ACCESS_TOKEN_EXPIRY = "2h"; 
   private readonly REFRESH_TOKEN_EXPIRY = "7d"; 
 
   generateTokenPair(payload: Omit<AccessTokenPayload, 'userId'> & { userId: string }): TokenPair {

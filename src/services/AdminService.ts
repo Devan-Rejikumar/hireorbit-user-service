@@ -48,7 +48,7 @@ export class AdminService implements IAdminService {
       userType: 'admin'
     };
 
-    const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '2h' });
     const refreshToken = jwt.sign(tokenPayload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
 
     return {
@@ -68,7 +68,7 @@ export class AdminService implements IAdminService {
         userType: decoded.userType
       };
 
-      const newAccessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '15m' });
+      const newAccessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '2h' });
       
       return { accessToken: newAccessToken };
     } catch (error) {
@@ -88,6 +88,10 @@ export class AdminService implements IAdminService {
     return this.userService.getAllUsers();
   }
 
+  async getAllUsersWithPagination(page: number = 1, limit: number = 10): Promise<{ data: User[]; total: number; page: number; totalPages: number }> {
+    return this.userService.getAllUsersWithPagination(page, limit);
+  }
+
   async getPendingCompanies(): Promise<Company[]> {
     return this.companyApiRepository.getPendingCompanies();
   }
@@ -100,3 +104,4 @@ export class AdminService implements IAdminService {
     return this.companyApiRepository.rejectCompany(companyId, reason, adminId);
   }
 }
+

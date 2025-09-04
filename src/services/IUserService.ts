@@ -1,5 +1,6 @@
 import { User } from "@prisma/client";
 import { TokenPair } from "../types/auth";
+import { ProfileData, UserProfile } from "../types/profile";
 
 export interface IUserService {
   register(email: string, password: string, name: string, role?: string): Promise<User>;
@@ -8,6 +9,7 @@ export interface IUserService {
   verifyOTP(email: string, otp: number): Promise<{ message: string }>;
   resendOTP(email: string): Promise<{ message: string }>;
   getAllUsers(): Promise<User[]>;
+  getAllUsersWithPagination(page?: number, limit?: number): Promise<{ data: User[]; total: number; page: number; totalPages: number }>;
   blockUser(id: string): Promise<User>;
   unblockUser(id: string): Promise<User>;
   verifyPasswordResetOTP(email: string, otp: string): Promise<{ message: string }>;

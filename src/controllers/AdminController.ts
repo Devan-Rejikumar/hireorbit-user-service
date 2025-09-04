@@ -32,7 +32,7 @@ export class AdminController {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 15 * 60 * 1000, 
+        maxAge: 2 * 60 * 60 * 1000, 
       });
       res.cookie("adminRefreshToken", tokens.refreshToken, {
         httpOnly: true,
@@ -71,7 +71,7 @@ export class AdminController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 15 * 60 * 1000 
+        maxAge: 2 * 60 * 60 * 1000 
       });
 
       res.status(HttpStatusCode.OK).json({ message: 'Admin token refreshed successfully' });
@@ -90,8 +90,20 @@ export class AdminController {
         return;
       }
 
-      const users = await this.adminService.getAllUsers();
-      res.status(HttpStatusCode.OK).json({ users });
+      
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      const result = await this.adminService.getAllUsersWithPagination(page, limit);
+      res.status(HttpStatusCode.OK).json({ 
+        users: result.data,
+        pagination: {
+          currentPage: result.page,
+          totalPages: result.totalPages,
+          totalUsers: result.total,
+          pageSize: limit
+        }
+      });
     } catch (error: any) {
       res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: "Failed to fetch users" });
     }

@@ -32,11 +32,19 @@ export class ProfileService implements IProfileService {
     userId: string,
     profileData: Partial<ProfileData>
   ): Promise<UserProfile> {
+    console.log('🔍 ProfileService: updateProfile called with userId:', userId);
+    console.log('🔍 ProfileService: profileData:', profileData);
+    
     const existingProfile = await this.profileRepository.getUserProfile(userId);
+    console.log('🔍 ProfileService: existingProfile:', existingProfile);
+    
     if (!existingProfile) {
-      throw new Error("Profile not found");
+      console.log('🔍 ProfileService: No existing profile found, creating new one');
+      // Create a new profile instead of throwing an error
+      return this.profileRepository.createProfile(userId, profileData);
     }
 
+    console.log('🔍 ProfileService: Updating existing profile');
     return this.profileRepository.updateUserProfile(userId, profileData);
   }
 

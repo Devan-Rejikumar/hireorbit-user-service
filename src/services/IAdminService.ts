@@ -6,6 +6,7 @@ export interface IAdminService{
     refreshToken(refreshToken: string): Promise<{ accessToken: string }>;
      logoutWithToken(refreshToken: string): Promise<void>;
     getAllUsers():Promise<User[]>;
+    getAllUsersWithPagination(page?: number, limit?: number): Promise<{ data: User[]; total: number; page: number; totalPages: number }>;
     getPendingCompanies(): Promise<Company[]>;
   approveCompany(companyId: string, adminId: string): Promise<CompanyApprovalResponse>;
   rejectCompany(companyId: string, reason: string, adminId: string): Promise<CompanyApprovalResponse>;

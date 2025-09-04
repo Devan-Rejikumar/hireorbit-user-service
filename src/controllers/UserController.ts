@@ -10,6 +10,10 @@ import { UserRegisterSchema, UserLoginSchema, GenerateOTPSchema, VerifyOTPSchema
 import { UpdateProfileSchema, ExperienceSchema, EducationSchema, SkillsSchema } from "../dto/schemas/profile.schema";
 import { mapUserToResponse, mapProfileToResponse } from "../dto/mappers/user.mapper";
 import { buildSuccessResponse, buildErrorResponse, buildListResponse } from "shared-dto";
+import { ProfileData, UserProfile } from "../types/profile";
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+
 
 
 
@@ -24,6 +28,30 @@ if (!admin.apps.length) {
     projectId: "hireorbit-d4744",
   });
 }
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = multer.memoryStorage();
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+   fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+});
+
+
 
 @injectable()
 export class UserController {
@@ -70,7 +98,7 @@ async login(req: Request, res: Response): Promise<void> {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15*60*1000
+      maxAge: 2*60*60*1000
     });
     res.cookie('refreshToken',result.tokens.refreshToken,{
       httpOnly: true,
@@ -99,7 +127,7 @@ async refreshToken(req: Request, res: Response): Promise<void>{
       httpOnly: true,
       secure: process.env.NODE_ENV==='production',
       sameSite:'strict',
-      maxAge:15*60*1000
+      maxAge: 2*60*60*1000
     });
     res.status(HttpStatusCode.OK).json(buildSuccessResponse(null, 'Token refreshed successfully'))
   } catch (err) {
@@ -366,4 +394,7 @@ async googleAuth(req: Request, res: Response): Promise<void> {
     );
   }
 }
+
+
 }
+

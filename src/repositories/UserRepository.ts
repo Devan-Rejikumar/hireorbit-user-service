@@ -4,6 +4,7 @@ import { User, Otp } from "@prisma/client";
 import { IUserRepository } from "./IUserRepository";
 import { BaseRepository } from "./BaseRepository";
 import { PaginationResult } from "../interfaces/IBaseRepository";
+import { ProfileData, UserProfile } from "../types/profile";
 
 @injectable()
 export class UserRepository extends BaseRepository<User> implements IUserRepository {
@@ -113,6 +114,45 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
   }
 
   async updateUserName(userId: string, name: string): Promise<User> {
-    return this.update(userId, {name})
+    return prisma.user.update({
+      where: { id: userId },
+      data: { name }
+    });
   }
+async updateProfile(userId: string, profileData: ProfileData): Promise<UserProfile> {
+  try {
+    console.log('UserRepository: updateProfile called with userId =', userId);
+    console.log('UserRepository: profileData =', profileData);
+    
+   
+    const prismaData = {
+      headline: profileData.headline ?? null,
+      about: profileData.about ?? null,
+      location: profileData.location ?? null,
+      phone: profileData.phone ?? null,
+      profilePicture: profileData.profilePicture ?? null,
+    };
+    
+    const updatedProfile = await prisma.userProfile.upsert({
+      where: { userId },
+      update: {
+        ...prismaData,
+        updatedAt: new Date(),
+      },
+      create: {
+        userId,
+        ...prismaData,
+        skills: [], 
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    
+    console.log(' UserRepository: updatedProfile =', updatedProfile);
+    return updatedProfile;
+  } catch (error) {
+    console.error('UserRepository: Error in updateProfile:', error);
+    throw error;
+  }
+}
 }

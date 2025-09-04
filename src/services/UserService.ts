@@ -11,6 +11,7 @@ import { IUserService } from "./IUserService";
 import { prisma } from "../prisma/client";
 import { JWTService } from "./JWTService";
 import { TokenPair } from "../types/auth";
+import { ProfileData, UserProfile } from "../types/profile";
 
 
 
@@ -159,6 +160,10 @@ async resendOTP(email: string): Promise<{ message: string; }> {
     return result.data;
   }
 
+  async getAllUsersWithPagination(page: number = 1, limit: number = 10): Promise<{ data: User[]; total: number; page: number; totalPages: number }> {
+    return this.userRepository.getAllUsers(page, limit);
+  }
+
   async blockUser(id: string): Promise<User> {
     const blockedUser = await this.userRepository.blockUser(id);
     return blockedUser;
@@ -220,8 +225,7 @@ async resendOTP(email: string): Promise<{ message: string; }> {
       email: userData.email,
       password: "",
       name: userData.fullName,
-      profilePicture: userData.profilePicture,
-      isGoogleUser: true,
+      role:'jobseeker'
     });
   }
   async findById(id: string): Promise<User | null> {
@@ -236,4 +240,5 @@ async resendOTP(email: string): Promise<{ message: string; }> {
     console.log("Invalid refresh token during logout");
   }
 }
+
 }
