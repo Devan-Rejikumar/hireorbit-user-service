@@ -1,21 +1,21 @@
-import { injectable, inject } from "inversify";
+import { injectable, inject } from 'inversify';
 import { Response } from 'express';
-import TYPES from "../config/types";
-import { IUserRepository } from "../repositories/IUserRepository";
-import { EmailService } from "./EmailService";
-import { RedisService } from "./RedisService";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { User } from "@prisma/client";
-import { IUserService } from "./IUserService";
-import { prisma } from "../prisma/client";
-import { JWTService } from "./JWTService";
-import { TokenPair } from "../types/auth";
-import { ProfileData, UserProfile } from "../types/profile";
+import TYPES from '../config/types';
+import { IUserRepository } from '../repositories/IUserRepository';
+import { EmailService } from './EmailService';
+import { RedisService } from './RedisService';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { User } from '@prisma/client';
+import { IUserService } from './IUserService';
+import { prisma } from '../prisma/client';
+import { JWTService } from './JWTService';
+import { TokenPair } from '../types/auth';
+import { ProfileData, UserProfile } from '../types/profile';
 
 
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 @injectable()
 export class UserService implements IUserService {
@@ -30,10 +30,10 @@ export class UserService implements IUserService {
     email: string,
     password: string,
     name: string,
-    role: string = "jobseeker"
+    role: string = 'jobseeker'
   ): Promise<User> {
     const existingUser = await this.userRepository.findByEmail(email);
-    if (existingUser) throw new Error("Email already in use");
+    if (existingUser) throw new Error('Email already in use');
     const hashed = await bcrypt.hash(password, 10);
     return this.userRepository.createUser({
       email,
@@ -49,13 +49,13 @@ export class UserService implements IUserService {
     
   ): Promise<{user: User; tokens: TokenPair}> {
     const user = await this.userRepository.findByEmail(email);
-    if (!user) throw new Error("Invalid credentials");
+    if (!user) throw new Error('Invalid credentials');
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) throw new Error("Invalid credentials");
-    if (user.isBlocked) throw new Error("Account is blocked");
+    if (!valid) throw new Error('Invalid credentials');
+    if (user.isBlocked) throw new Error('Account is blocked');
     console.log(
-      "Signing token with secret:",
-      JWT_SECRET.substring(0, 10) + "..."
+      'Signing token with secret:',
+      JWT_SECRET.substring(0, 10) + '...'
     );
     const tokens = this.jwtService.generateTokenPair({
       userId:user.id,
@@ -69,38 +69,48 @@ export class UserService implements IUserService {
       user.id,
       refresTokenPayload.tokenId,
       tokens.refreshToken
-    )
+    );
 
     return {user,tokens};
   }
 
-async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
-  try {
-    const refreshTokenPayload = this.jwtService.verifyRefreshToken(refreshToken);
-    const storedToken = await this.redisService.getRefreshToken(
-      refreshTokenPayload.userId,
-      refreshTokenPayload.tokenId
-    );
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
+    console.log('🔄 UserService - Starting refresh token process');
+    try {
+      console.log('🔍 UserService - Verifying refresh token');
+      const refreshTokenPayload = this.jwtService.verifyRefreshToken(refreshToken);
+      console.log('✅ UserService - Refresh token verified:', refreshTokenPayload);
+      console.log('🔍 UserService - Checking Redis for stored token');
+      const storedToken = await this.redisService.getRefreshToken(
+        refreshTokenPayload.userId,
+        refreshTokenPayload.tokenId
+      );
+      console.log('📦 UserService - Redis check result:', {
+      hasStoredToken: !!storedToken,
+      tokensMatch: storedToken === refreshToken
+    });
 
-    if (!storedToken || storedToken !== refreshToken) {
-      throw new Error("Invalid refresh token");
+      if (!storedToken || storedToken !== refreshToken) {
+         console.error('❌ UserService - Token validation failed');
+        throw new Error('Invalid refresh token');
+      }
+      console.log('🔄 UserService - Generating new access token');
+      const newAccessToken = this.jwtService.generateNewAccessToken(refreshTokenPayload);
+      console.log('✅ UserService - New access token generated');
+      return { accessToken: newAccessToken };
+    } catch (error) {
+      console.error('❌ UserService - Refresh token error:', error);
+      throw new Error('Invalid refresh token');
     }
-
-    const newAccessToken = this.jwtService.generateNewAccessToken(refreshTokenPayload);
-
-    return { accessToken: newAccessToken };
-  } catch (error) {
-    throw new Error("Invalid refresh token");
   }
-}
 
-async logout(userId: string, tokenId: string): Promise<void>{
-  await this.redisService.deleteRefreshToken(userId, tokenId)
-}
+  async logout(userId: string, tokenId: string): Promise<void>{
+    await this.redisService.deleteRefreshToken(userId, tokenId);
+  }
 
-async logoutAllSessions(userId: string): Promise<void>{
-  await this.redisService.deleteAllUserRefreshTokens(userId);
-}
+  async logoutAllSessions(userId: string): Promise<void>{
+    await this.redisService.deleteAllUserRefreshTokens(userId);
+  }
 
 
   
@@ -108,30 +118,30 @@ async logoutAllSessions(userId: string): Promise<void>{
     console.log(` [UserService] generateOTP called with email: ${email}`);
     
     try {
-      console.log(` [UserService] Checking if user exists`);
+      console.log(' [UserService] Checking if user exists');
       const existingUser = await this.userRepository.findByEmail(email);
-      console.log(` [UserService] Existing user check result:`, existingUser ? 'User exists' : 'User not found');
+      console.log(' [UserService] Existing user check result:', existingUser ? 'User exists' : 'User not found');
       
       if (existingUser) {
-        console.log(`[UserService] Email already registered, throwing error`);
-        throw new Error("Email already registered");
+        console.log('[UserService] Email already registered, throwing error');
+        throw new Error('Email already registered');
       }
       
-      console.log(` [UserService] Generating OTP`);
+      console.log(' [UserService] Generating OTP');
       const otp = Math.floor(100000 + Math.random() * 900000);
       console.log(` [UserService] Generated OTP: ${otp}`);
       
       await this.redisService.storeOTP(email, otp.toString(), 300);
-      console.log(` [UserService] OTP saved to Redis`);
+      console.log(' [UserService] OTP saved to Redis');
       
-      console.log(` [UserService] Calling emailService.sendOTP`);
+      console.log(' [UserService] Calling emailService.sendOTP');
       await this.emailService.sendOTP(email, otp);
-      console.log(` [UserService] Email service completed`);
+      console.log(' [UserService] Email service completed');
       
-      console.log(` [UserService] Returning success message`);
-      return { message: "OTP sent successfully" };
+      console.log(' [UserService] Returning success message');
+      return { message: 'OTP sent successfully' };
     } catch (error) {
-      console.log(` [UserService] Error in generateOTP:`, error);
+      console.log(' [UserService] Error in generateOTP:', error);
       throw error;
     }
   }
@@ -139,7 +149,7 @@ async logoutAllSessions(userId: string): Promise<void>{
   async verifyOTP(email: string, otp: number): Promise<{ message: string }> {
     const storedOtp = await this.redisService.getOTP(email);
     if (!storedOtp) {
-      throw new Error("No OTP found for this email or OTP has expired");
+      throw new Error('No OTP found for this email or OTP has expired');
     }
     if(parseInt(storedOtp)!==otp){
       throw new Error('Invalid OTP');
@@ -148,12 +158,12 @@ async logoutAllSessions(userId: string): Promise<void>{
     return {message: 'OTP verified successfully'};
   }
 
-async resendOTP(email: string): Promise<{ message: string; }> {
-  const existingUser = await this.userRepository.findByEmail(email);
-  if(existingUser) throw new Error('Email already registered');
-  await this.redisService.deleteOTP(email);
-  return this.generateOTP(email);
-}
+  async resendOTP(email: string): Promise<{ message: string; }> {
+    const existingUser = await this.userRepository.findByEmail(email);
+    if(existingUser) throw new Error('Email already registered');
+    await this.redisService.deleteOTP(email);
+    return this.generateOTP(email);
+  }
 
   async getAllUsers(): Promise<User[]> {
     const result = await this.userRepository.getAllUsers();
@@ -181,7 +191,7 @@ async resendOTP(email: string): Promise<{ message: string; }> {
     const role = existingUser.role;
     await this.redisService.storePasswordResetOTP(email,role,otp.toString(),900);
     await this.emailService.sendPasswordResetOTP(email,otp);
-    return { message: "Password reset OTP sent successfully" };
+    return { message: 'Password reset OTP sent successfully' };
   }
 
   async verifyPasswordResetOTP(
@@ -202,10 +212,10 @@ async resendOTP(email: string): Promise<{ message: string; }> {
     newPassword: string
   ): Promise<{ message: string }> {
     const user = await this.userRepository.findByEmail(email);
-    if (!user) throw new Error("User not found");
+    if (!user) throw new Error('User not found');
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.userRepository.updateUserPassword(email, hashed);
-    return { message: "Password reset successful" };
+    return { message: 'Password reset successful' };
   }
 
   async updateUserName(userId: string, name: string): Promise<User> {
@@ -223,7 +233,7 @@ async resendOTP(email: string): Promise<{ message: string; }> {
   }): Promise<User> {
     return this.userRepository.createUser({
       email: userData.email,
-      password: "",
+      password: '',
       name: userData.fullName,
       role:'jobseeker'
     });
@@ -232,13 +242,13 @@ async resendOTP(email: string): Promise<{ message: string; }> {
     return this.userRepository.findById(id);
   }
   async logoutWithToken(refreshToken: string): Promise<void> {
-  try {
-    const refreshTokenPayload = this.jwtService.verifyRefreshToken(refreshToken);
-    await this.logout(refreshTokenPayload.userId, refreshTokenPayload.tokenId);
-  } catch (error) {
+    try {
+      const refreshTokenPayload = this.jwtService.verifyRefreshToken(refreshToken);
+      await this.logout(refreshTokenPayload.userId, refreshTokenPayload.tokenId);
+    } catch (error) {
 
-    console.log("Invalid refresh token during logout");
+      console.log('Invalid refresh token during logout');
+    }
   }
-}
 
 }

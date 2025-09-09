@@ -1,16 +1,16 @@
-import { injectable, inject } from "inversify";
-import TYPES from "../config/types";
-import { IAdminRepository } from "../repositories/IAdminRepository";
-import { ICompanyApiRepository } from "../repositories/CompanyApiRepository";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { User } from "@prisma/client";
-import { IAdminService } from "./IAdminService";
-import { IUserService } from "./IUserService";
-import { Company, CompanyApprovalResponse } from "../types/company";
+import { injectable, inject } from 'inversify';
+import TYPES from '../config/types';
+import { IAdminRepository } from '../repositories/IAdminRepository';
+import { ICompanyApiRepository } from '../repositories/CompanyApiRepository';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { User } from '@prisma/client';
+import { IAdminService } from './IAdminService';
+import { IUserService } from './IUserService';
+import { Company, CompanyApprovalResponse } from '../types/company';
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || "refresh_secret";
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refresh_secret';
 
 interface AdminTokenPayload {
   userId: string;
@@ -34,12 +34,12 @@ export class AdminService implements IAdminService {
     tokens: { accessToken: string; refreshToken: string } 
   }> {
     const admin = await this.adminRepository.findByEmail(email);
-    if (!admin) throw new Error("Invalid credentials");
+    if (!admin) throw new Error('Invalid credentials');
     
     const valid = await bcrypt.compare(password, admin.password);
-    if (!valid) throw new Error("Invalid credentials");
+    if (!valid) throw new Error('Invalid credentials');
     
-    if (admin.isBlocked) throw new Error("Account blocked");
+    if (admin.isBlocked) throw new Error('Account blocked');
 
     const tokenPayload: AdminTokenPayload = {
       userId: admin.id,

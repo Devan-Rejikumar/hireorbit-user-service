@@ -1,5 +1,5 @@
-import {  User } from "@prisma/client";
-import { CompanyApprovalResponse, Company } from "../types/company";
+import {  User } from '@prisma/client';
+import { CompanyApprovalResponse, Company } from '../types/company';
 
 export interface IAdminService{
     login(email:string,password:string):Promise<{admin:User;tokens:{accessToken:string;refreshToken:string}}>;

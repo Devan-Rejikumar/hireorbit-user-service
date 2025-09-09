@@ -1,6 +1,6 @@
-import { User, Otp } from "@prisma/client";
-import { PaginationResult } from "../interfaces/IBaseRepository";
-import { ProfileData, UserProfile } from "../types/profile";
+import { User, Otp } from '@prisma/client';
+import { PaginationResult } from '../interfaces/IBaseRepository';
+import { ProfileData, UserProfile } from '../types/profile';
 
 export interface CreateUserData {
   email: string;

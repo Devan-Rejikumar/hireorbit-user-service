@@ -1,4 +1,4 @@
-import { UserProfile, Experience, Education } from "@prisma/client";
+import { UserProfile, Experience, Education } from '@prisma/client';
 
 export interface ProfileData {
   headline?: string;

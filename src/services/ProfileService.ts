@@ -1,9 +1,9 @@
-import { injectable, inject } from "inversify";
-import { UserProfile, Experience, Education } from "@prisma/client";
-import { IProfileService, ProfileData, ExperienceData, EducationData } from "./IProfileService";
-import { IProfileRepository } from "../repositories/IProfileRepository";
-import { IUserProfile } from "../types/profile";
-import TYPES from "../config/types";
+import { injectable, inject } from 'inversify';
+import { UserProfile, Experience, Education } from '@prisma/client';
+import { IProfileService, ProfileData, ExperienceData, EducationData } from './IProfileService';
+import { IProfileRepository } from '../repositories/IProfileRepository';
+import { IUserProfile } from '../types/profile';
+import TYPES from '../config/types';
 
 @injectable()
 export class ProfileService implements IProfileService {
@@ -18,7 +18,7 @@ export class ProfileService implements IProfileService {
   ): Promise<UserProfile> {
     const existingProfile = await this.profileRepository.getUserProfile(userId);
     if (existingProfile) {
-      throw new Error("User already has a profile");
+      throw new Error('User already has a profile');
     }
 
     return this.profileRepository.createProfile(userId, profileData);
@@ -51,7 +51,7 @@ export class ProfileService implements IProfileService {
   async deleteProfile(userId: string): Promise<void> {
     const existingProfile = await this.profileRepository.getUserProfile(userId);
     if (!existingProfile) {
-      throw new Error("Profile not found");
+      throw new Error('Profile not found');
     }
 
     return this.profileRepository.deleteProfile(userId);
@@ -73,7 +73,7 @@ export class ProfileService implements IProfileService {
   ): Promise<Experience> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
-      throw new Error("User profile not found. Please create a profile first.");
+      throw new Error('User profile not found. Please create a profile first.');
     }
 
     return this.profileRepository.addExperience(profile.id, experienceData);
@@ -86,7 +86,7 @@ export class ProfileService implements IProfileService {
   ): Promise<Experience> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
-      throw new Error("User profile not found");
+      throw new Error('User profile not found');
     }
 
     const fullProfile = await this.profileRepository.getFullProfile(userId);
@@ -94,7 +94,7 @@ export class ProfileService implements IProfileService {
       (exp) => exp.id === experienceId
     );
     if (!experienceExists) {
-      throw new Error("Experience not found or doesn't belong to this user");
+      throw new Error('Experience not found or doesn\'t belong to this user');
     }
 
     return this.profileRepository.updateExperience(
@@ -106,7 +106,7 @@ export class ProfileService implements IProfileService {
   async deleteExperience(userId: string, experienceId: string): Promise<void> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
-      throw new Error("User profile not found");
+      throw new Error('User profile not found');
     }
 
     const fullProfile = await this.profileRepository.getFullProfile(userId);
@@ -114,7 +114,7 @@ export class ProfileService implements IProfileService {
       (exp) => exp.id === experienceId
     );
     if (!experienceExists) {
-      throw new Error("Experience not found or doesn't belong to this user");
+      throw new Error('Experience not found or doesn\'t belong to this user');
     }
 
     return this.profileRepository.deleteExperience(experienceId);
@@ -126,7 +126,7 @@ export class ProfileService implements IProfileService {
   ): Promise<Education> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
-      throw new Error("User profile not found. Please create a profile first.");
+      throw new Error('User profile not found. Please create a profile first.');
     }
 
     return this.profileRepository.addEducation(profile.id, educationData);
@@ -139,7 +139,7 @@ export class ProfileService implements IProfileService {
   ): Promise<Education> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
-      throw new Error("User profile not found");
+      throw new Error('User profile not found');
     }
 
     const fullProfile = await this.profileRepository.getFullProfile(userId);
@@ -147,7 +147,7 @@ export class ProfileService implements IProfileService {
       (edu) => edu.id === educationId
     );
     if (!educationExists) {
-      throw new Error("Education not found or doesn't belong to this user");
+      throw new Error('Education not found or doesn\'t belong to this user');
     }
 
     return this.profileRepository.updateEducation(educationId, educationData);
@@ -156,7 +156,7 @@ export class ProfileService implements IProfileService {
   async deleteEducation(userId: string, educationId: string): Promise<void> {
     const profile = await this.profileRepository.getUserProfile(userId);
     if (!profile) {
-      throw new Error("User profile not found");
+      throw new Error('User profile not found');
     }
 
     const fullProfile = await this.profileRepository.getFullProfile(userId);
@@ -164,7 +164,7 @@ export class ProfileService implements IProfileService {
       (edu) => edu.id === educationId
     );
     if (!experienceExists) {
-      throw new Error("Education not found or doesn't belong to this user");
+      throw new Error('Education not found or doesn\'t belong to this user');
     }
 
     return this.profileRepository.deleteEducation(educationId);

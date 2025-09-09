@@ -26,12 +26,12 @@ export interface Company {
     updatedAt: Date;
   }
   
-  export interface CompanyApprovalResponse {
+export interface CompanyApprovalResponse {
     company: Company;
     message: string;
   }
   
-  export interface PendingCompaniesResponse {
+export interface PendingCompaniesResponse {
     companies: Company[];
   }
   

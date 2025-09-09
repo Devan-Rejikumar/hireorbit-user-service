@@ -1,8 +1,8 @@
-import { IProfileRepository } from "./IProfileRepository";
-import { UserProfile, Education, Experience } from "@prisma/client";
-import { prisma } from "../prisma/client";
-import { injectable } from "inversify";
-import { ProfileData, ExperienceData, EducationData } from "../services/IProfileService";
+import { IProfileRepository } from './IProfileRepository';
+import { UserProfile, Education, Experience } from '@prisma/client';
+import { prisma } from '../prisma/client';
+import { injectable } from 'inversify';
+import { ProfileData, ExperienceData, EducationData } from '../services/IProfileService';
 
 @injectable()
 export class ProfileRepository implements IProfileRepository {

@@ -1,10 +1,10 @@
-import { injectable } from "inversify";
-import { prisma } from "../prisma/client";
-import { User, Otp } from "@prisma/client";
-import { IUserRepository } from "./IUserRepository";
-import { BaseRepository } from "./BaseRepository";
-import { PaginationResult } from "../interfaces/IBaseRepository";
-import { ProfileData, UserProfile } from "../types/profile";
+import { injectable } from 'inversify';
+import { prisma } from '../prisma/client';
+import { User, Otp } from '@prisma/client';
+import { IUserRepository } from './IUserRepository';
+import { BaseRepository } from './BaseRepository';
+import { PaginationResult } from '../interfaces/IBaseRepository';
+import { ProfileData, UserProfile } from '../types/profile';
 
 @injectable()
 export class UserRepository extends BaseRepository<User> implements IUserRepository {
@@ -24,11 +24,11 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
   }): Promise<User> {
     const user = await this.create({
     
-        email: data.email,
-        password: data.password,
-        name: data.name, 
-        role: "jobseeker", 
-        isVerified: data.isGoogleUser || false, 
+      email: data.email,
+      password: data.password,
+      name: data.name, 
+      role: 'jobseeker', 
+      isVerified: data.isGoogleUser || false, 
       
     });
 
@@ -61,7 +61,7 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
   async findOTP(email: string): Promise<Otp | null> {
     return prisma.otp.findFirst({
       where: { email },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -71,15 +71,15 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
     });
   }
   async getAllUsers(page: number = 1, limit: number = 10) {
-    return this.findWithPagination(page, limit, {role:'jobseeker'})
+    return this.findWithPagination(page, limit, {role:'jobseeker'});
   }
  
   async blockUser(id: string): Promise<User> {
-    return this.update(id, {isBlocked:true})
+    return this.update(id, {isBlocked:true});
   }
 
   async unblockUser(id: string): Promise<User> {
-    return this.update(id, {isBlocked:false})
+    return this.update(id, {isBlocked:false});
   }
 
   async savePasswordResetOTP(
@@ -119,40 +119,40 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
       data: { name }
     });
   }
-async updateProfile(userId: string, profileData: ProfileData): Promise<UserProfile> {
-  try {
-    console.log('UserRepository: updateProfile called with userId =', userId);
-    console.log('UserRepository: profileData =', profileData);
+  async updateProfile(userId: string, profileData: ProfileData): Promise<UserProfile> {
+    try {
+      console.log('UserRepository: updateProfile called with userId =', userId);
+      console.log('UserRepository: profileData =', profileData);
     
    
-    const prismaData = {
-      headline: profileData.headline ?? null,
-      about: profileData.about ?? null,
-      location: profileData.location ?? null,
-      phone: profileData.phone ?? null,
-      profilePicture: profileData.profilePicture ?? null,
-    };
+      const prismaData = {
+        headline: profileData.headline ?? null,
+        about: profileData.about ?? null,
+        location: profileData.location ?? null,
+        phone: profileData.phone ?? null,
+        profilePicture: profileData.profilePicture ?? null,
+      };
     
-    const updatedProfile = await prisma.userProfile.upsert({
-      where: { userId },
-      update: {
-        ...prismaData,
-        updatedAt: new Date(),
-      },
-      create: {
-        userId,
-        ...prismaData,
-        skills: [], 
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+      const updatedProfile = await prisma.userProfile.upsert({
+        where: { userId },
+        update: {
+          ...prismaData,
+          updatedAt: new Date(),
+        },
+        create: {
+          userId,
+          ...prismaData,
+          skills: [], 
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
     
-    console.log(' UserRepository: updatedProfile =', updatedProfile);
-    return updatedProfile;
-  } catch (error) {
-    console.error('UserRepository: Error in updateProfile:', error);
-    throw error;
+      console.log(' UserRepository: updatedProfile =', updatedProfile);
+      return updatedProfile;
+    } catch (error) {
+      console.error('UserRepository: Error in updateProfile:', error);
+      throw error;
+    }
   }
-}
 }

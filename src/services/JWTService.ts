@@ -1,14 +1,14 @@
-import { injectable } from "inversify";
-import jwt from "jsonwebtoken";
-import { v4 as uuidv4 } from "uuid";
-import { AccessTokenPayload, RefreshTokenPayload, TokenPair } from "../types/auth";
+import { injectable } from 'inversify';
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
+import { AccessTokenPayload, RefreshTokenPayload, TokenPair } from '../types/auth';
 
 @injectable()
 export class JWTService {
-  private readonly ACCESS_TOKEN_SECRET = process.env.JWT_SECRET || "supersecret";
-  private readonly REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || "refresh_secret";
-  private readonly ACCESS_TOKEN_EXPIRY = "2h"; 
-  private readonly REFRESH_TOKEN_EXPIRY = "7d"; 
+  private readonly ACCESS_TOKEN_SECRET = process.env.JWT_SECRET || 'supersecret';
+  private readonly REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refresh_secret';
+  private readonly ACCESS_TOKEN_EXPIRY = '15m'; 
+  private readonly REFRESH_TOKEN_EXPIRY = '7d'; 
 
   generateTokenPair(payload: Omit<AccessTokenPayload, 'userId'> & { userId: string }): TokenPair {
     const tokenId = uuidv4();
@@ -47,19 +47,53 @@ export class JWTService {
   }
 
   verifyRefreshToken(token: string): RefreshTokenPayload {
-    return jwt.verify(token, this.REFRESH_TOKEN_SECRET) as RefreshTokenPayload;
+  console.log('🔍 JWTService - Verifying refresh token');
+  try {
+    const decoded = jwt.verify(token, this.REFRESH_TOKEN_SECRET) as RefreshTokenPayload;
+    console.log('✅ JWTService - Token verified:', {
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      tokenId: decoded.tokenId
+    });
+    return decoded;
+  } catch (error) {
+    console.error('❌ JWTService - Token verification failed:', error);
+    throw error;
   }
+}
+
+  // generateNewAccessToken(refreshTokenPayload: RefreshTokenPayload): string {
+  //   const accessTokenPayload: AccessTokenPayload = {
+  //     userId: refreshTokenPayload.userId,
+  //     email: refreshTokenPayload.email,
+  //     role: refreshTokenPayload.role,
+  //     userType: refreshTokenPayload.userType
+  //   };
+
+  //   return jwt.sign(accessTokenPayload, this.ACCESS_TOKEN_SECRET, {
+  //     expiresIn: this.ACCESS_TOKEN_EXPIRY
+  //   });
+  // }
 
   generateNewAccessToken(refreshTokenPayload: RefreshTokenPayload): string {
-    const accessTokenPayload: AccessTokenPayload = {
-      userId: refreshTokenPayload.userId,
-      email: refreshTokenPayload.email,
-      role: refreshTokenPayload.role,
-      userType: refreshTokenPayload.userType
-    };
+  console.log('🔄 JWTService - Generating new access token:', {
+    userId: refreshTokenPayload.userId,
+    role: refreshTokenPayload.role
+  });
+  
+  const accessTokenPayload: AccessTokenPayload = {
+    userId: refreshTokenPayload.userId,
+    email: refreshTokenPayload.email,
+    role: refreshTokenPayload.role,
+    userType: refreshTokenPayload.userType
+  };
 
-    return jwt.sign(accessTokenPayload, this.ACCESS_TOKEN_SECRET, {
-      expiresIn: this.ACCESS_TOKEN_EXPIRY
-    });
+  const token = jwt.sign(accessTokenPayload, this.ACCESS_TOKEN_SECRET, {
+    expiresIn: this.ACCESS_TOKEN_EXPIRY
+  });
+  
+  console.log('✅ JWTService - New access token generated');
+  return token;
   }
 }

@@ -1,5 +1,5 @@
-import { UserProfile, Education, Experience } from "@prisma/client";
-import { ProfileData, ExperienceData, EducationData } from "../services/IProfileService";
+import { UserProfile, Education, Experience } from '@prisma/client';
+import { ProfileData, ExperienceData, EducationData } from '../services/IProfileService';
 
 export interface IProfileRepository {
   

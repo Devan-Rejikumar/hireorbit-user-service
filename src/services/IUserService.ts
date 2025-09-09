@@ -1,6 +1,6 @@
-import { User } from "@prisma/client";
-import { TokenPair } from "../types/auth";
-import { ProfileData, UserProfile } from "../types/profile";
+import { User } from '@prisma/client';
+import { TokenPair } from '../types/auth';
+import { ProfileData, UserProfile } from '../types/profile';
 
 export interface IUserService {
   register(email: string, password: string, name: string, role?: string): Promise<User>;
