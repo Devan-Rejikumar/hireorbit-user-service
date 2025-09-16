@@ -12,6 +12,11 @@ app.use((req, res, next) => {
     req.headers['content-type'] = 'application/json';
     console.log('🔧 Fixed malformed Content-Type header');
   }
+  // Fix mixed content-type headers (application/json + multipart/form-data)
+  if (req.headers['content-type']?.includes('application/json') && req.headers['content-type']?.includes('multipart/form-data')) {
+    req.headers['content-type'] = 'application/json';
+    console.log('🔧 Fixed mixed Content-Type header to application/json');
+  }
   next();
 });
 

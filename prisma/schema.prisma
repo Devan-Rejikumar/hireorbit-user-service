@@ -1,25 +1,23 @@
-// This block tells Prisma how to connect to your database
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// This block tells Prisma to generate the client
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id         String   @id @default(uuid())
-  email      String   @unique
-  password   String
-  name       String 
-  role       String
-  isVerified Boolean  @default(false)
-  isBlocked  Boolean  @default(false)
-  isGoogleUser    Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  profile    UserProfile?
+  id           String       @id @default(uuid())
+  email        String       @unique
+  password     String
+  name         String
+  role         String
+  isVerified   Boolean      @default(false)
+  isBlocked    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  isGoogleUser Boolean      @default(false)
+  profile      UserProfile?
 }
 
 model Otp {
@@ -35,36 +33,39 @@ model Company {
   password    String
   companyName String
   industry    String?
-  size        String?  // "1-10", "11-50", "51-200", "200+"
+  size        String?
   website     String?
   description String?
-  isVerified  Boolean  @default(false)  // Admin must verify
+  isVerified  Boolean  @default(false)
   isBlocked   Boolean  @default(false)
   createdAt   DateTime @default(now())
 }
-model PasswordReset {
-     id         String   @id @default(uuid())
-     email      String
-     role       String
-     otp        String
-     expiresAt  DateTime
-     
-   }
 
-   model UserProfile {
-  id            String       @id @default(uuid())
-  userId        String      @unique
-  user          User        @relation(fields: [userId], references: [id])
-  headline      String?
-  about         String?     @db.Text
+model PasswordReset {
+  id        String   @id @default(uuid())
+  email     String
+  role      String
+  otp       String
+  expiresAt DateTime
+}
+
+model UserProfile {
+  id             String       @id @default(uuid())
+  userId         String       @unique
+  headline       String?
+  about          String?
   profilePicture String?
-  location      String?
-  phone         String?
-  skills        String[]
-  experience    Experience[]
-  education     Education[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  location       String?
+  phone          String?
+  skills         String[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  resume         String?
+  certifications Json?  
+  achievements   String?
+  education      Education[]
+  experience     Experience[]
+  user           User         @relation(fields: [userId], references: [id])
 }
 
 model Experience {
@@ -74,22 +75,22 @@ model Experience {
   location      String?
   startDate     DateTime
   endDate       DateTime?
-  description   String?     @db.Text
+  description   String?
   isCurrentRole Boolean     @default(false)
-  profile       UserProfile @relation(fields: [profileId], references: [id])
   profileId     String
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  profile       UserProfile @relation(fields: [profileId], references: [id])
 }
 
 model Education {
-  id           String      @id @default(uuid())
-  institutuion String
-  degree       String
-  startDate    DateTime
-  endDate      DateTime?
-  profile      UserProfile @relation(fields: [profileId], references: [id])
-  profileId    String
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id          String      @id @default(uuid())
+  institution String
+  degree      String
+  startDate   DateTime
+  endDate     DateTime?
+  profileId   String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  profile     UserProfile @relation(fields: [profileId], references: [id])
 }

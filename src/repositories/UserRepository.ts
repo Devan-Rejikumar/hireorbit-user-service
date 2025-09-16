@@ -114,10 +114,15 @@ export class UserRepository extends BaseRepository<User> implements IUserReposit
   }
 
   async updateUserName(userId: string, name: string): Promise<User> {
-    return prisma.user.update({
+    console.log(' UserRepository: updateUserName called with userId:', userId, 'name:', name);
+    
+    const result = await prisma.user.update({
       where: { id: userId },
       data: { name }
     });
+    
+    console.log('✅ UserRepository: updateUserName result:', JSON.stringify(result, null, 2));
+    return result;
   }
   async updateProfile(userId: string, profileData: ProfileData): Promise<UserProfile> {
     try {

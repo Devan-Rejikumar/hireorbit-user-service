@@ -2,22 +2,33 @@ import { Request, Response } from 'express';
 import { injectable, inject } from 'inversify';
 import TYPES from '../config/types';
 import { IProfileService } from '../services/IProfileService';
+import { IUserService } from '../services/IUserService';
 import { UserProfile } from '@prisma/client';
-import { error, profile } from 'console';
 import { HttpStatusCode, ValidationStatusCode } from '../enums/StatusCodes';
 import { EducationSchema, ExperienceSchema, UpdateProfileSchema } from '../dto/schemas/profile.schema';
 import { buildErrorResponse, buildSuccessResponse } from 'shared-dto';
 import cloudinary from '../config/cloudinary';
 
+interface RequestWithUser extends Request {
+  user?: {
+    userId: string;
+    email: string;
+    role: string;
+    userType: string;
+    companyName?: string;
+  };
+}
+
 @injectable()
 export class ProfileController {
   constructor(
-    @inject(TYPES.IProfileService) private profileService: IProfileService
+    @inject(TYPES.IProfileService) private profileService: IProfileService,
+    @inject(TYPES.IUserService) private userService: IUserService
   ) {}
 
   async createProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      const userId = (req as RequestWithUser).user?.userId;
       
       if (!userId) {
         res.status(HttpStatusCode.UNAUTHORIZED).json(
@@ -38,14 +49,15 @@ export class ProfileController {
       res.status(HttpStatusCode.CREATED).json(
         buildSuccessResponse({ profile }, 'Profile created successfully')
       );
-    } catch (error: any) {
-      if (error.message === 'Profile already exists') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Profile already exists') {
         res.status(HttpStatusCode.CONFLICT).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
       } else {
         res.status(HttpStatusCode.BAD_REQUEST).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
       }
     }
@@ -53,7 +65,7 @@ export class ProfileController {
 
   async getProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      const userId = (req as RequestWithUser).user?.userId;
   
       if (!userId) {
         res.status(HttpStatusCode.UNAUTHORIZED).json(
@@ -74,187 +86,133 @@ export class ProfileController {
       res.status(HttpStatusCode.OK).json(
         buildSuccessResponse({ profile }, 'Profile retrieved successfully')
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json(
-        buildErrorResponse(error.message)
+        buildErrorResponse(errorMessage)
       );
     }
   }
 
   async updateProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+
+      const userId = (req as RequestWithUser).user?.userId;
       
       if (!userId) {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: 'User not authenticated' });
         return;
       }
-      console.log(' ProfileController: updateProfile called');
-      console.log('Request body:', req.body);
-      console.log('Request headers:', req.headers);
-      console.log('Content-Type:', req.headers['content-type']);
-
-
-    
-    
-      let formData: any = {};
-    
-      if (req.headers['content-type']?.includes('multipart/form-data')) {
-     
-        let profilePictureUrl: string | undefined;
       
-        console.log('Multer check → has req.file:', !!req.file);
-        if (req.file) {
-          console.log('Multer file meta:', {
-            fieldname: (req.file as any).fieldname,
-            originalname: (req.file as any).originalname,
-            mimetype: (req.file as any).mimetype,
-            size: (req.file as any).size,
-            path: (req.file as any).path,
-          });
-          try {
-       
-            const result = await cloudinary.uploader.upload(req.file.path, {
-              folder: 'user-profiles',
-              transformation: [
-                { width: 500, height: 500, crop: 'limit' },
-                { quality: 'auto' }
-              ],
-              resource_type: 'image'
-            });
-            profilePictureUrl = result.secure_url;
-            console.log('🔍 Cloudinary upload successful:', result.secure_url);
-          } catch (cloudinaryError) {
-            console.error('Cloudinary upload error:', cloudinaryError);
-            res.status(500).json(
-              buildErrorResponse('Failed to upload image to Cloudinary', 'Image upload failed')
-            );
-            return;
-          }
-        } else {
-          console.log('Multer did not populate req.file. Did the client send field name "profilePicture"?');
-        }
-      
-        formData = {
-          headline: req.body?.headline || undefined,
-          about: req.body?.about || undefined,
-          location: req.body?.location || undefined,
-          phone: req.body?.phone || undefined,
-          skills: req.body?.skills ? JSON.parse(req.body.skills) : undefined,
-          profilePicture: profilePictureUrl
-        };
-      } else {
-        console.log('Processing JSON data, req.body:', req.body);
-        if (!req.body && req.headers['content-type']?.includes('application/json')) {
-          console.log('req.body is undefined, but Content-Type is JSON. This might be a parsing issue.');
-          res.status(400).json({
-            error: 'Request body parsing failed. Please ensure Content-Type is set to application/json and body contains valid JSON.'
-          });
+      console.log('�� ProfileController: updateProfile called');
+      console.log('🔍 ProfileController: Request body:', JSON.stringify(req.body, null, 2));
+      console.log(' ProfileController: User ID:', userId);
+
+      if (req.body?.name && typeof req.body.name === 'string') {
+        console.log('🔍 Updating User name:', req.body.name);
+        try {
+          await this.userService.updateUserName(userId, req.body.name);
+          console.log('✅ User name updated successfully');
+        } catch (error) {
+          console.error('❌ Error updating user name:', error);
+          res.status(HttpStatusCode.BAD_REQUEST).json(
+            buildErrorResponse('Failed to update user name', 'Name update failed')
+          );
           return;
         }
-      
-        let profilePictureUrl: string | undefined;
-      
-    
-        console.log('profileImage type:', typeof req.body?.profileImage);
-        console.log('profileImage value:', req.body?.profileImage);
-        console.log('Cloudinary config check:', {
-          cloudName: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Missing',
-          apiKey: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Missing',
-          apiSecret: process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Missing'
-        });
-      
-        if (req.body?.profileImage && typeof req.body.profileImage === 'string' && req.body.profileImage.startsWith('data:image/')) {
-          try {
-         
-            const result = await cloudinary.uploader.upload(req.body.profileImage, {
-              folder: 'user-profiles',
-              transformation: [
-                { width: 500, height: 500, crop: 'limit' },
-                { quality: 'auto' }
-              ],
-              resource_type: 'image'
-            });
-            profilePictureUrl = result.secure_url;
-            console.log('Cloudinary base64 upload successful:', result.secure_url);
-          } catch (cloudinaryError) {
-            console.error('Cloudinary base64 upload error:', cloudinaryError);
-            res.status(500).json(
-              buildErrorResponse('Failed to upload image to Cloudinary', 'Image upload failed')
-            );
-            return;
-          }
-        } else if (req.body?.profileImage && typeof req.body.profileImage === 'object' && Object.keys(req.body.profileImage).length === 0) {
-        
-          console.log('profileImage is an empty object - no image to upload');
-          profilePictureUrl = undefined;
-        } else if (req.body?.profilePicture) {
-        
-          profilePictureUrl = req.body.profilePicture;
-        }
-      
-        formData = {
-          headline: req.body?.headline || undefined,
-          about: req.body?.about || undefined,
-          location: req.body?.location || undefined,
-          phone: req.body?.phone || undefined,
-          skills: req.body?.skills || undefined,
-          profilePicture: profilePictureUrl
-        };
       }
-    
-      console.log(' Processed form data:', formData);
-      console.log('Form data keys:', Object.keys(formData));
-      console.log(' Form data values:', Object.values(formData));
+      const existingProfile = await this.profileService.getProfile(userId);
+      if (!existingProfile) {
+        console.log('🔍 No existing profile found, creating new one');
+        await this.profileService.createProfile(userId, {});
+      }
 
-      const cleanedFormData = Object.entries(formData).reduce((acc, [key, value]) => {
+      let profileData: Record<string, unknown> = {
+        headline: req.body?.headline || undefined,
+        about: req.body?.about || undefined,
+        location: req.body?.location || undefined,
+        phone: req.body?.phone || undefined,
+        skills: req.body?.skills || undefined,
+        profilePicture: req.body?.profilePicture || undefined
+      };
+      console.log('🔍 [ProfileController] Checking for profile picture...');
+      console.log('🔍 [ProfileController] req.body.profilePicture exists:', !!req.body?.profilePicture);
+      console.log('🔍 [ProfileController] profilePicture type:', typeof req.body?.profilePicture);
+      if (req.body?.profilePicture) {
+        console.log('🔍 [ProfileController] profilePicture starts with data:image/:', req.body.profilePicture.startsWith('data:image/'));
+        console.log('🔍 [ProfileController] profilePicture length:', req.body.profilePicture.length);
+      }
+      
+      if (req.body?.profilePicture && typeof req.body.profilePicture === 'string' && req.body.profilePicture.startsWith('data:image/')) {
+        console.log('🔍 [ProfileController] Processing profile picture upload to Cloudinary...');
+        try {
+          const result = await cloudinary.uploader.upload(req.body.profilePicture, {
+            folder: 'user-profiles',
+            transformation: [
+              { width: 500, height: 500, crop: 'limit' },
+              { quality: 'auto' }
+            ],
+            resource_type: 'image'
+          });
+          profileData.profilePicture = result.secure_url;
+          console.log('✅ [ProfileController] Cloudinary upload successful:', result.secure_url);
+        } catch (cloudinaryError) {
+          console.error('❌ [ProfileController] Cloudinary upload error:', cloudinaryError);
+          res.status(500).json(
+            buildErrorResponse('Failed to upload image to Cloudinary', 'Image upload failed')
+          );
+          return;
+        }
+      } else {
+        console.log('🔍 [ProfileController] No valid profile picture data found');
+      }
+
+      // Clean undefined values
+      const cleanedProfileData = Object.entries(profileData).reduce((acc, [key, value]) => {
         if (value !== undefined) {
           acc[key] = value;
         }
         return acc;
-      }, {} as any);
+      }, {} as Record<string, unknown>);
 
+      console.log('🔍 ProfileController: Cleaned profile data:', JSON.stringify(cleanedProfileData, null, 2));
 
-    
-      const validationResult = UpdateProfileSchema.safeParse(cleanedFormData);
+      // Validate profile data
+      const validationResult = UpdateProfileSchema.safeParse(cleanedProfileData);
       if (!validationResult.success) {
-        console.log('Validation failed:', validationResult.error);
+        console.log('❌ Validation failed:', validationResult.error);
         res.status(ValidationStatusCode.VALIDATION_ERROR).json(
           buildErrorResponse('Validation failed', validationResult.error.message)
         );
         return;
       }
-  
-      const profileData = validationResult.data;
-      console.log('About to call profileService.updateProfile with:', { userId, profileData });
-      
-      const updatedProfile = await this.profileService.updateProfile(userId, profileData);
-      console.log('ProfileService returned:', updatedProfile);
-      
-      console.log(' Sending response to frontend:', { 
-        success: true,
-        data: { profile: updatedProfile },
-        message: 'Profile updated successfully'
-      });
+
+      console.log(' ProfileController: Validated profile data:', JSON.stringify(validationResult.data, null, 2));
+
+      // Update profile
+      const updatedProfile = await this.profileService.updateProfile(userId, validationResult.data);
+      console.log('✅ Profile updated successfully:', JSON.stringify(updatedProfile, null, 2));
       
       res.status(HttpStatusCode.OK).json({ 
         success: true,
         data: { profile: updatedProfile },
         message: 'Profile updated successfully'
       });
-    } catch (error: any) {
-      console.log('ProfileController error:', error);
-      if (error.message === 'Profile not found') {
-        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
+    } catch (error: unknown) {
+      console.error('❌ ProfileController error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage === 'Profile not found') {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: errorMessage });
       } else {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: errorMessage });
       }
     }
   }
 
   async deleteProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
 
       if (!userId) {
         res.status(HttpStatusCode.UNAUTHORIZED).json({ error: 'User not authenticated' });
@@ -263,73 +221,158 @@ export class ProfileController {
 
       await this.profileService.deleteProfile(userId);
       res.status(HttpStatusCode.OK).json({ message: 'Profile deleted successfully' });
-    } catch (error: any) {
-      if (error.message === 'Profile not found') {
-        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Profile not found') {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: errorMessage });
       } else {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: errorMessage });
       }
     }
   }
 
-  async getFullProfile(req: Request, res: Response): Promise<void> {
+async getFullProfile(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      res.status(HttpStatusCode.UNAUTHORIZED).json({ error: 'User not authenticated' });
+      return;
+    }
+    const userData = await this.userService.findById(userId);
+
+    let fullProfile = await this.profileService.getFullProfile(userId);
+
+    if (!fullProfile) {
+      const emptyProfile = await this.profileService.createProfile(userId, {});
+      fullProfile = await this.profileService.getFullProfile(userId);
+    }
+    if (!fullProfile) {
+      res.status(HttpStatusCode.NOT_FOUND).json({ error: 'Profile not found' });
+      return;
+    }
+
+    const completionPercentage = this.calculateCompletionPercentage(fullProfile);
+
+    res.status(HttpStatusCode.OK).json({
+      profile: fullProfile,
+      user: {
+        id: userId,
+        username: userData?.name || req.headers['x-user-email'] as string,
+        email: req.headers['x-user-email'] as string,
+      },
+      completionPercentage,
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: errorMessage });
+  }
+}
+
+ private calculateCompletionPercentage(profile: (UserProfile & { experience?: unknown[]; education?: unknown[]; certifications?: any; achievements?: any }) | null): number {
+  if (!profile) {
+    return 0;
+  }
+
+  let score = 0;
+  let maxScore = 0;
+
+  // Tier 1: Essential Profile (40% weight - 16 points)
+  const essentialFields = [
+    { field: 'headline', weight: 4, required: true },
+    { field: 'about', weight: 4, required: true },
+    { field: 'location', weight: 4, required: true },
+    { field: 'phone', weight: 4, required: true }
+  ];
+
+  essentialFields.forEach(({ field, weight, required }) => {
+    const value = profile[field as keyof typeof profile];
+    if (value && (typeof value !== 'string' || value.trim().length > 0)) {
+      score += weight;
+    }
+    maxScore += weight;
+  });
+
+  // Tier 2: Professional Profile (40% weight - 24 points)
+  // Skills (8 points) - requires at least 3 skills
+  if (profile.skills && Array.isArray(profile.skills) && profile.skills.length >= 3) {
+    score += 8;
+  }
+  maxScore += 8;
+
+  // Experience (8 points) - requires at least 1 experience
+  if (profile.experience && Array.isArray(profile.experience) && profile.experience.length >= 1) {
+    score += 8;
+  }
+  maxScore += 8;
+
+  // Education (8 points) - requires at least 1 education
+  if (profile.education && Array.isArray(profile.education) && profile.education.length >= 1) {
+    score += 8;
+  }
+  maxScore += 8;
+
+  // Tier 3: Complete Profile (20% weight - 10 points)
+  // Resume (4 points)
+  if (profile.resume && profile.resume.trim().length > 0) {
+    score += 4;
+  }
+  maxScore += 4;
+
+  // Profile Picture (2 points)
+  if (profile.profilePicture && profile.profilePicture.trim().length > 0) {
+    score += 2;
+  }
+  maxScore += 2;
+
+  // Certifications (2 points) - requires at least 1 certification
+  if (profile.certifications) {
     try {
-      const userId = req.headers['x-user-id'] as string;
-
-      if (!userId) {
-        res.status(HttpStatusCode.UNAUTHORIZED).json({ error: 'User not authenticated' });
-        return;
+      const certifications = typeof profile.certifications === 'string' 
+        ? JSON.parse(profile.certifications) 
+        : profile.certifications;
+      if (Array.isArray(certifications) && certifications.length >= 1) {
+        score += 2;
       }
-
-    
-      const container = require('../config/inversify.config').default;
-      const TYPES = require('../config/types').default;
-      const userService = container.get(TYPES.IUserService);
-      const userData = await userService.findById(userId);
-
-      let fullProfile = await this.profileService.getFullProfile(userId);
-
-    
-      if (!fullProfile) {
-        const emptyProfile = await this.profileService.createProfile(userId, {});
-        fullProfile = await this.profileService.getFullProfile(userId);
-      }
-
-      const completionPercentage = this.calculateCompletionPercentage(fullProfile);
-
-      res.status(HttpStatusCode.OK).json({
-        profile: fullProfile,
-        user: {
-          id: userId,
-          username: userData?.name || req.headers['x-user-email'] as string,
-          email: req.headers['x-user-email'] as string,
-        },
-        completionPercentage,
-      });
-    } catch (error: any) {
-      res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({ error: error.message });
+    } catch (error) {
+      // If parsing fails, treat as no certifications
     }
   }
+  maxScore += 2;
 
-  private calculateCompletionPercentage(profile: any): number {
-    let completed = 0;
-    const total = 6;
-
-    if (profile.headline) completed++;
-    if (profile.about) completed++;
-    if (profile.location) completed++;
-    if (profile.phone) completed++;
-    if (profile.experience && profile.experience.length > 0) completed++;
-    if (profile.education && profile.education.length > 0) completed++;
-
-    return Math.round((completed / total) * 100);
+  // Achievements (2 points) - requires at least 1 achievement
+  if (profile.achievements) {
+    try {
+      const achievements = typeof profile.achievements === 'string' 
+        ? JSON.parse(profile.achievements) 
+        : profile.achievements;
+      if (Array.isArray(achievements) && achievements.length >= 1) {
+        score += 2;
+      }
+    } catch (error) {
+      // If parsing fails, treat as no achievements
+    }
   }
+  maxScore += 2;
+
+  return Math.round((score / maxScore) * 100);
+}
+
 
   async addExperience(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      console.log('🔍 [ProfileController] addExperience called');
+      console.log('🔍 [ProfileController] req.user:', (req as RequestWithUser).user);
+      console.log('🔍 [ProfileController] req.headers:', req.headers);
+      console.log('🔍 [ProfileController] x-user-id header:', req.headers['x-user-id']);
+      
+      // Try to get userId from req.user first (preferred method), then fallback to headers
+      const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
+      
+      console.log('🔍 [ProfileController] Extracted userId:', userId);
       
       if (!userId) {
+        console.log('❌ [ProfileController] No userId found');
         res.status(HttpStatusCode.UNAUTHORIZED).json(
           buildErrorResponse('User not authenticated')
         );
@@ -349,14 +392,15 @@ export class ProfileController {
       res.status(HttpStatusCode.CREATED).json(
         buildSuccessResponse({ experience }, 'Experience added successfully')
       );
-    } catch (error: any) {
-      if (error.message === 'Profile not found') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Profile not found') {
         res.status(HttpStatusCode.NOT_FOUND).json(
           buildErrorResponse('Profile not found. Please create a profile first.')
         );
       } else {
         res.status(HttpStatusCode.BAD_REQUEST).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
       }
     }
@@ -364,7 +408,8 @@ export class ProfileController {
 
   async updateExperience(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Try to get userId from req.user first (preferred method), then fallback to headers
+      const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
       const experienceId = req.params.id;
       
       if (!userId) {
@@ -381,7 +426,6 @@ export class ProfileController {
         return;
       }
   
- 
       const validationResult = ExperienceSchema.safeParse(req.body);
       if (!validationResult.success) {
         res.status(ValidationStatusCode.VALIDATION_ERROR).json(
@@ -399,18 +443,19 @@ export class ProfileController {
       res.status(HttpStatusCode.OK).json(
         buildSuccessResponse({ experience: updatedExperience }, 'Experience updated successfully')
       );
-    } catch (error: any) {
-      if (error.message === 'Experience not found') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Experience not found') {
         res.status(HttpStatusCode.NOT_FOUND).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
-      } else if (error.message === 'Unauthorized') {
+      } else if (errorMessage === 'Unauthorized') {
         res.status(HttpStatusCode.FORBIDDEN).json(
           buildErrorResponse('You can only update your own experience')
         );
       } else {
         res.status(HttpStatusCode.BAD_REQUEST).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
       }
     }
@@ -418,7 +463,8 @@ export class ProfileController {
 
   async deleteExperience(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Try to get userId from req.user first (preferred method), then fallback to headers
+      const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
       const experienceId = req.params.id;
 
       if (!userId) {
@@ -435,29 +481,38 @@ export class ProfileController {
 
       await this.profileService.deleteExperience(userId, experienceId);
       res.status(HttpStatusCode.OK).json({ message: 'Experience deleted successfully' });
-    } catch (error: any) {
-      if (error.message === 'Experience not found') {
-        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
-      } else if (error.message === 'Unauthorized') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Experience not found') {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: errorMessage });
+      } else if (errorMessage === 'Unauthorized') {
         res.status(HttpStatusCode.FORBIDDEN).json({ error: 'You can only delete your own experience' });
       } else {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: errorMessage });
       }
     }
   }
 
   async addEducation(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      console.log('�� [ProfileController] addEducation called');
+      console.log('🔍 [ProfileController] req.user:', (req as RequestWithUser).user);
+      console.log('🔍 [ProfileController] req.headers:', req.headers);
+      console.log('🔍 [ProfileController] x-user-id header:', req.headers['x-user-id']);
+      
+      // Try to get userId from req.user first (preferred method), then fallback to headers
+      const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
+      
+      console.log('🔍 [ProfileController] Extracted userId:', userId);
       
       if (!userId) {
+        console.log('❌ [ProfileController] No userId found');
         res.status(HttpStatusCode.UNAUTHORIZED).json(
           buildErrorResponse('User not authenticated')
         );
         return;
       }
   
-     
       const validationResult = EducationSchema.safeParse(req.body);
       if (!validationResult.success) {
         res.status(ValidationStatusCode.VALIDATION_ERROR).json(
@@ -471,14 +526,15 @@ export class ProfileController {
       res.status(HttpStatusCode.CREATED).json(
         buildSuccessResponse({ education }, 'Education added successfully')
       );
-    } catch (error: any) {
-      if (error.message === 'Profile not found') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Profile not found') {
         res.status(HttpStatusCode.NOT_FOUND).json(
           buildErrorResponse('Profile not found. Please create a profile first.')
         );
       } else {
         res.status(HttpStatusCode.BAD_REQUEST).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
       }
     }
@@ -486,7 +542,8 @@ export class ProfileController {
 
   async updateEducation(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Try to get userId from req.user first (preferred method), then fallback to headers
+      const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
       const educationId = req.params.id;
       
       if (!userId) {
@@ -503,7 +560,6 @@ export class ProfileController {
         return;
       }
   
-
       const validationResult = EducationSchema.safeParse(req.body);
       if (!validationResult.success) {
         res.status(ValidationStatusCode.VALIDATION_ERROR).json(
@@ -521,18 +577,19 @@ export class ProfileController {
       res.status(HttpStatusCode.OK).json(
         buildSuccessResponse({ education: updatedEducation }, 'Education updated successfully')
       );
-    } catch (error: any) {
-      if (error.message === 'Education not found') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Education not found') {
         res.status(HttpStatusCode.NOT_FOUND).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
-      } else if (error.message === 'Unauthorized') {
+      } else if (errorMessage === 'Unauthorized') {
         res.status(HttpStatusCode.FORBIDDEN).json(
           buildErrorResponse('You can only update your own education')
         );
       } else {
         res.status(HttpStatusCode.BAD_REQUEST).json(
-          buildErrorResponse(error.message)
+          buildErrorResponse(errorMessage)
         );
       }
     }
@@ -540,7 +597,8 @@ export class ProfileController {
 
   async deleteEducation(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
+      // Try to get userId from req.user first (preferred method), then fallback to headers
+      const userId = (req as RequestWithUser).user?.userId || req.headers['x-user-id'] as string;
       const educationId = req.params.id;
 
       if (!userId) {
@@ -557,13 +615,14 @@ export class ProfileController {
 
       await this.profileService.deleteEducation(userId, educationId);
       res.status(HttpStatusCode.OK).json({ message: 'Education deleted successfully' });
-    } catch (error: any) {
-      if (error.message === 'Education not found') {
-        res.status(HttpStatusCode.NOT_FOUND).json({ error: error.message });
-      } else if (error.message === 'Unauthorized') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage === 'Education not found') {
+        res.status(HttpStatusCode.NOT_FOUND).json({ error: errorMessage });
+      } else if (errorMessage === 'Unauthorized') {
         res.status(HttpStatusCode.FORBIDDEN).json({ error: 'You can only delete your own education' });
       } else {
-        res.status(HttpStatusCode.BAD_REQUEST).json({ error: error.message });
+        res.status(HttpStatusCode.BAD_REQUEST).json({ error: errorMessage });
       }
     }
   }

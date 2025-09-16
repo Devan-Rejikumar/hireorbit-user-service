@@ -33,10 +33,10 @@ export class ProfileService implements IProfileService {
     profileData: Partial<ProfileData>
   ): Promise<UserProfile> {
     console.log('🔍 ProfileService: updateProfile called with userId:', userId);
-    console.log('🔍 ProfileService: profileData:', profileData);
+    console.log(' ProfileService: profileData:', JSON.stringify(profileData, null, 2));
     
     const existingProfile = await this.profileRepository.getUserProfile(userId);
-    console.log('🔍 ProfileService: existingProfile:', existingProfile);
+    console.log(' ProfileService: existingProfile:', existingProfile ? 'EXISTS' : 'NOT FOUND');
     
     if (!existingProfile) {
       console.log('🔍 ProfileService: No existing profile found, creating new one');
@@ -45,7 +45,9 @@ export class ProfileService implements IProfileService {
     }
 
     console.log('🔍 ProfileService: Updating existing profile');
-    return this.profileRepository.updateUserProfile(userId, profileData);
+    const result = await this.profileRepository.updateUserProfile(userId, profileData);
+    console.log('✅ ProfileService: Profile updated successfully');
+    return result;
   }
 
   async deleteProfile(userId: string): Promise<void> {

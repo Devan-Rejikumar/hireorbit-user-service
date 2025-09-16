@@ -44,8 +44,8 @@ export class ProfileRepository implements IProfileRepository {
     userId: string,
     profileData: Partial<ProfileData>
   ): Promise<UserProfile> {
-    console.log(' ProfileRepository: updateUserProfile called with userId:', userId);
-    console.log(' ProfileRepository: profileData:', profileData);
+    console.log('🔍 ProfileRepository: updateUserProfile called with userId:', userId);
+    console.log(' ProfileRepository: profileData:', JSON.stringify(profileData, null, 2));
     
     const updateData = {
       ...(profileData.headline !== undefined && { headline: profileData.headline }),
@@ -57,14 +57,14 @@ export class ProfileRepository implements IProfileRepository {
       updatedAt: new Date(),
     };
     
-    console.log(' ProfileRepository: updateData:', updateData);
+    console.log(' ProfileRepository: updateData:', JSON.stringify(updateData, null, 2));
     
     const result = await prisma.userProfile.update({
       where: { userId },
       data: updateData,
     });
     
-    console.log('ProfileRepository: update result:', result);
+    console.log('✅ ProfileRepository: update result:', JSON.stringify(result, null, 2));
     return result;
   }
 
@@ -145,7 +145,7 @@ export class ProfileRepository implements IProfileRepository {
     return prisma.education.create({
       data: {
         profileId,
-        institutuion: educationData.institution, 
+        institution: educationData.institution, 
         degree: educationData.degree,
         startDate: educationData.startDate,
         endDate: educationData.endDate || null,
@@ -160,7 +160,7 @@ export class ProfileRepository implements IProfileRepository {
     return prisma.education.update({
       where: { id: educationId },
       data: {
-        ...(educationData.institution && { institutuion: educationData.institution }),
+        ...(educationData.institution && { institution: educationData.institution }),
         ...(educationData.degree && { degree: educationData.degree }),
         ...(educationData.startDate && { startDate: educationData.startDate }),
         ...(educationData.endDate !== undefined && { endDate: educationData.endDate }),

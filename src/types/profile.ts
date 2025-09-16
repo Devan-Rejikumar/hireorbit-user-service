@@ -26,6 +26,7 @@ export interface IUserProfile {
   headline: string | null; 
   about: string | null;    
   profilePicture: string | null; 
+  resume: string | null;
   location: string | null; 
   phone: string | null;    
   experience: IExperience[];
@@ -52,6 +53,7 @@ export interface UserProfile {
   location: string | null;
   phone: string | null;
   profilePicture: string | null;
+  resume: string | null;
   skills: string[];
   createdAt: Date;
   updatedAt: Date;

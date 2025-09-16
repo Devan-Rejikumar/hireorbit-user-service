@@ -195,23 +195,38 @@ export class UserController {
 
   async getMe(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.headers['x-user-id'] as string;
-      const userEmail = req.headers['x-user-email'] as string;
-      const userRole = req.headers['x-user-role'] as string;
+      console.log('🔍 [USER-CONTROLLER] getMe called');
+      console.log('🔍 [USER-CONTROLLER] req.user:', req.user);
+      console.log('🔍 [USER-CONTROLLER] Headers (fallback):', {
+        'x-user-id': req.headers['x-user-id'],
+        'x-user-email': req.headers['x-user-email'],
+        'x-user-role': req.headers['x-user-role']
+      });
+
+      // Use req.user (preferred method) or fallback to headers
+      const userId = req.user?.userId || req.headers['x-user-id'] as string;
+      const userEmail = req.user?.email || req.headers['x-user-email'] as string;
+      const userRole = req.user?.role || req.headers['x-user-role'] as string;
 
       if (!userId) {
+        console.log('❌ [USER-CONTROLLER] No user ID found');
         res.status(401).json({ error: 'User not authenticated' });
         return;
       }
 
+      console.log('✅ [USER-CONTROLLER] User context:', { userId, userEmail, userRole });
+
       const user = await this.userService.findById(userId);
       if (!user) {
+        console.log('❌ [USER-CONTROLLER] User not found in database');
         res.status(404).json({ error: 'User not found' });
         return;
       }
 
+      console.log('✅ [USER-CONTROLLER] User found:', user);
       res.status(200).json(user);
     } catch (error) {
+      console.error('❌ [USER-CONTROLLER] Error in getMe:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -219,6 +234,18 @@ export class UserController {
 
   async logout(req: Request, res: Response): Promise<void> {
     try {
+      console.log('🔍 [USER-CONTROLLER] logout called');
+      console.log('🔍 [USER-CONTROLLER] req.user:', req.user);
+      
+      // Use req.user (preferred method) or fallback to headers
+      const userId = req.user?.userId || req.headers['x-user-id'] as string;
+      
+      if (!userId) {
+        console.log('❌ [USER-CONTROLLER] No user ID found for logout');
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
+      }
+
       const refreshToken = req.cookies.refreshToken;
     
       if (refreshToken) {
@@ -306,6 +333,9 @@ export class UserController {
 
   async updateName(req: Request, res: Response): Promise<void> {
     try {
+      console.log('🔍 [USER-CONTROLLER] updateName called');
+      console.log('🔍 [USER-CONTROLLER] req.user:', req.user);
+      
       const validationResult = UpdateNameSchema.safeParse(req.body);
       if (!validationResult.success) {
         res.status(ValidationStatusCode.VALIDATION_ERROR).json(
@@ -313,22 +343,27 @@ export class UserController {
         );
         return;
       }
-      const userId = req.headers['x-user-id'] as string;
+      
+      // Use req.user (preferred method) or fallback to headers
+      const userId = req.user?.userId || req.headers['x-user-id'] as string;
       const { name } = validationResult.data;
     
       if (!userId) {
+        console.log('❌ [USER-CONTROLLER] No user ID found for updateName');
         res.status(401).json(
           buildErrorResponse('User not authenticated', 'Authentication required')
         );
         return;
       }
     
+      console.log('✅ [USER-CONTROLLER] Updating name for user:', userId);
       const updatedUser = await this.userService.updateUserName(userId, name);
       res.status(HttpStatusCode.OK).json(
         buildSuccessResponse({ user: updatedUser }, 'Name updated successfully')
       );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('❌ [USER-CONTROLLER] Error in updateName:', err);
       res.status(HttpStatusCode.BAD_REQUEST).json(
         buildErrorResponse(errorMessage, 'Name update failed')
       );
